@@ -80,7 +80,25 @@ export const ticketFiltersSchema = z.object({
 
 export type TicketFilters = z.infer<typeof ticketFiltersSchema>;
 
-export type FormState = { error?: string } | undefined;
+/**
+ * Estado devolvido pelas Server Actions de formulário. O React 19 limpa os
+ * campos após cada envio, então, em caso de erro, devolvemos os valores
+ * digitados (`values`) para os campos serem repreenchidos.
+ */
+export type FormState =
+  | { error?: string; values?: Record<string, string> }
+  | undefined;
+
+/** Valores de texto do formulário (ignora campos internos do React). */
+export function formValues(formData: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string" && !key.startsWith("$ACTION") && key !== "fields") {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",

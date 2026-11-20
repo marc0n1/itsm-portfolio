@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/dal";
 import { ROLE_LABEL, canWorkTickets } from "@/lib/permissions";
 import { getTicket, listAssignees } from "@/lib/ticket-queries";
+import { displayAnswer, parseAnswers } from "@/lib/services";
 import {
   PRIORITIES,
   PRIORITY_LABEL,
@@ -37,6 +38,7 @@ async function TicketContent({ params }: { params: Params }) {
 
   const staff = canWorkTickets(user.role);
   const assignees = staff ? await listAssignees(user) : [];
+  const answers = parseAnswers(ticket.formData);
 
   return (
     <div className="space-y-5">
@@ -61,6 +63,28 @@ async function TicketContent({ params }: { params: Params }) {
             </p>
             <p className="whitespace-pre-wrap text-sm">{ticket.description}</p>
           </section>
+
+          {answers.length > 0 && (
+            <section className="rounded-lg border border-zinc-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-medium">
+                Informações do serviço
+                {ticket.service && (
+                  <span className="font-normal text-zinc-500">
+                    {" "}
+                    · {ticket.service.name}
+                  </span>
+                )}
+              </h2>
+              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                {answers.map((a) => (
+                  <div key={a.key}>
+                    <dt className="text-xs text-zinc-500">{a.label}</dt>
+                    <dd className="whitespace-pre-wrap">{displayAnswer(a)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
 
           <section className="space-y-3">
             <h2 className="text-lg font-medium">

@@ -37,8 +37,29 @@ model Organization {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  users   User[]
-  tickets Ticket[]
+  users    User[]
+  tickets  Ticket[]
+  services Service[]
+}
+
+/// Tipo de serviço do catálogo. `fields` guarda a definição do formulário
+/// (lista de campos) e é validado com zod em src/lib/services.ts.
+model Service {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  description     String   @default("")
+  defaultPriority Priority @default(MEDIUM)
+  active          Boolean  @default(true)
+  fields          Json     @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  tickets      Ticket[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model User {
@@ -72,14 +93,20 @@ model Ticket {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   resolvedAt     DateTime?
+  serviceId      String?
+  /// Retrato das respostas do formulário do serviço: [{key,label,type,value}].
+  /// Guardado com o rótulo para o chamado continuar legível se o serviço mudar.
+  formData       Json?
 
   organization Organization @relation(fields: [organizationId], references: [id])
   requester    User         @relation("TicketRequester", fields: [requesterId], references: [id])
   assignee     User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   comments     Comment[]
 
   @@index([organizationId, status])
   @@index([assigneeId])
+  @@index([serviceId])
 }
 
 model Comment {

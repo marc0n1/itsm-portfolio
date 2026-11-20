@@ -38,6 +38,116 @@ async function main() {
 
   console.log(`Seed ok: ${users.length} usuários na organização "${org.name}".`);
 
+  // Catálogo de serviços. `update: {}` preserva o que o admin editar depois.
+  const catalog = [
+    {
+      name: "Acesso a sistema",
+      description: "Pedir ou alterar acesso a ERP, CRM, intranet e outros.",
+      defaultPriority: "MEDIUM",
+      fields: [
+        {
+          key: "sistema",
+          label: "Sistema",
+          type: "SELECT",
+          required: true,
+          options: ["ERP", "CRM", "Intranet", "E-mail"],
+        },
+        {
+          key: "nivel",
+          label: "Nível de acesso",
+          type: "SELECT",
+          required: true,
+          options: ["Leitura", "Escrita", "Administrador"],
+        },
+        {
+          key: "justificativa",
+          label: "Justificativa",
+          type: "TEXTAREA",
+          required: true,
+          options: [],
+        },
+        {
+          key: "prazo",
+          label: "Prazo desejado",
+          type: "DATE",
+          required: false,
+          options: [],
+        },
+      ],
+    },
+    {
+      name: "Novo equipamento",
+      description: "Notebook, monitor, periféricos e outros equipamentos.",
+      defaultPriority: "LOW",
+      fields: [
+        {
+          key: "equipamento",
+          label: "Equipamento",
+          type: "SELECT",
+          required: true,
+          options: ["Notebook", "Monitor", "Teclado e mouse", "Headset"],
+        },
+        {
+          key: "quantidade",
+          label: "Quantidade",
+          type: "NUMBER",
+          required: true,
+          options: [],
+        },
+        {
+          key: "centro_custo",
+          label: "Centro de custo",
+          type: "TEXT",
+          required: false,
+          options: [],
+        },
+      ],
+    },
+    {
+      name: "Problema de rede ou VPN",
+      description: "Internet lenta, queda de conexão ou VPN que não conecta.",
+      defaultPriority: "HIGH",
+      fields: [
+        {
+          key: "local",
+          label: "Onde você está?",
+          type: "SELECT",
+          required: true,
+          options: ["Escritório", "Home office"],
+        },
+        {
+          key: "erro",
+          label: "Mensagem de erro",
+          type: "TEXT",
+          required: false,
+          options: [],
+        },
+        {
+          key: "desde",
+          label: "Desde quando acontece",
+          type: "DATE",
+          required: false,
+          options: [],
+        },
+      ],
+    },
+  ] as const;
+
+  for (const s of catalog) {
+    await prisma.service.upsert({
+      where: { organizationId_name: { organizationId: org.id, name: s.name } },
+      update: {},
+      create: {
+        name: s.name,
+        description: s.description,
+        defaultPriority: s.defaultPriority,
+        fields: s.fields.map((f) => ({ ...f, options: [...f.options] })),
+        organizationId: org.id,
+      },
+    });
+  }
+  console.log(`Seed ok: ${catalog.length} serviços no catálogo.`);
+
   // Chamados de exemplo: só se a organização ainda não tiver nenhum,
   // para o seed poder rodar de novo sem duplicar nem sobrescrever dados.
   const existing = await prisma.ticket.count({

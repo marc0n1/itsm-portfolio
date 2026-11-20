@@ -59,6 +59,7 @@ export async function getTicket(user: CurrentUser, id: string) {
     include: {
       requester: { select: { name: true, email: true } },
       assignee: { select: { id: true, name: true } },
+      service: { select: { name: true } },
       comments: {
         // Solicitantes nunca recebem comentários internos do banco.
         where: showInternal ? {} : { internal: false },

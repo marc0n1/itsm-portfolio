@@ -14,3 +14,8 @@ export function canWorkTickets(role: Role) {
 export function canManageUsers(role: Role) {
   return role === "ADMIN";
 }
+
+/** Só o admin configura o catálogo de serviços e seus formulários. */
+export function canManageServices(role: Role) {
+  return role === "ADMIN";
+}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/dal";
-import { ROLE_LABEL } from "@/lib/permissions";
+import { ROLE_LABEL, canManageServices } from "@/lib/permissions";
 import { logout } from "../login/actions";
 
 export async function AppHeader() {
@@ -19,6 +19,14 @@ export async function AppHeader() {
           <Link href="/tickets" className="text-zinc-600 hover:text-zinc-900">
             Chamados
           </Link>
+          {canManageServices(user.role) && (
+            <Link
+              href="/admin/services"
+              className="text-zinc-600 hover:text-zinc-900"
+            >
+              Serviços
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-4 text-sm">

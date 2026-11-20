@@ -6,9 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
 import { ticketScope } from "@/lib/ticket-queries";
+import { buildAnswers, parseFields, type Answer } from "@/lib/services";
 import {
   commentSchema,
   createTicketSchema,
+  formValues,
   updateTicketSchema,
   type FormState,
 } from "@/lib/tickets";
@@ -18,18 +20,46 @@ export async function createTicket(
   formData: FormData,
 ): Promise<FormState> {
   const user = await requireUser();
+  const values = formValues(formData);
 
   const parsed = createTicketSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description"),
     priority: formData.get("priority"),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
   if (user.role === "REQUESTER" && parsed.data.priority === "CRITICAL") {
     return {
       error: "A prioridade crítica só pode ser definida pelo atendimento.",
+      values,
     };
+  }
+
+  // Chamado a partir de um serviço do catálogo: o formulário dinâmico daquele
+  // serviço é validado aqui, no servidor, contra a definição salva no banco.
+  const rawServiceId = formData.get("serviceId");
+  let serviceId: string | undefined;
+  let answers: Answer[] | undefined;
+
+  if (typeof rawServiceId === "string" && rawServiceId) {
+    const service = await prisma.service.findFirst({
+      where: {
+        id: rawServiceId,
+        organizationId: user.organizationId,
+        active: true,
+      },
+      select: { id: true, fields: true },
+    });
+    if (!service) {
+      return { error: "Este serviço não está mais disponível.", values };
+    }
+
+    const built = buildAnswers(parseFields(service.fields), formData);
+    if (built.error) return { error: built.error, values };
+
+    serviceId = service.id;
+    answers = built.answers;
   }
 
   const ticket = await prisma.ticket.create({
@@ -37,6 +67,7 @@ export async function createTicket(
       ...parsed.data,
       organizationId: user.organizationId,
       requesterId: user.id,
+      ...(serviceId ? { serviceId, formData: answers } : {}),
     },
     select: { id: true },
   });

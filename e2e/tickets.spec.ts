@@ -17,7 +17,8 @@ async function login(page: Page, email: string, password = PASSWORD) {
 }
 
 async function openTicket(page: Page, title: string, priority?: string) {
-  await page.goto("/tickets/new");
+  // "general" = chamado sem serviço (pula o catálogo).
+  await page.goto("/tickets/new?service=general");
   await page.getByLabel("Título").fill(title);
   await page
     .getByLabel("Descrição")
@@ -53,7 +54,7 @@ test("solicitante abre chamado e o vê em 'Meus chamados'", async ({ page }) => 
   await expect(page).toHaveURL(/\/dashboard/);
 
   // Solicitante não pode declarar prioridade crítica.
-  await page.goto("/tickets/new");
+  await page.goto("/tickets/new?service=general");
   await expect(
     page.getByLabel("Prioridade").getByRole("option", { name: "Crítica" }),
   ).toHaveCount(0);
