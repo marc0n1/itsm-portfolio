@@ -222,3 +222,15 @@ model Notification {
 
   @@index([userId, readAt, createdAt])
 }
+
+/// Tentativas de login que FALHARAM (limite contra força bruta). `email` é o
+/// informado (minúsculo), exista ou não; `ip` vazio = IP não confiável/desconhecido.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([email, ip, createdAt])
+  @@index([ip, createdAt])
+}

@@ -1,5 +1,7 @@
 # ITSM Portfolio
 
+![CI](../../actions/workflows/ci.yml/badge.svg)
+
 Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo de serviços, quadro Kanban, SLA e dashboard de indicadores.
 
 **Stack:** Next.js (App Router, Server Actions) · TypeScript · Prisma + PostgreSQL · Playwright · Node test runner
@@ -7,6 +9,7 @@ Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo
 ## Funcionalidades
 
 - **Autenticação e papéis:** Administrador, Agente e Solicitante, com sessão por JWT em cookie e rotas protegidas.
+- **Proteção contra força bruta:** depois de 5 senhas erradas em 15 minutos para a mesma conta e IP, o login é bloqueado (até com a senha certa) e libera sozinho. Há um segundo freio por IP (20 falhas) e a resposta é a mesma para contas que não existem. Os registros ficam no banco, então valem com várias instâncias.
 - **Chamados:** criação, listagem, detalhe, comentários públicos e notas internas (invisíveis ao solicitante). Cada solicitante só enxerga os próprios chamados.
 - **Catálogo de serviços:** o admin cria serviços com formulários dinâmicos; o servidor valida as respostas e serviços desativados não aceitam novos chamados.
 - **Anexos:** upload na abertura do chamado e nos comentários (até 3 arquivos de 5 MB: png, jpg, pdf, txt, log, csv). O servidor valida extensão e assinatura do conteúdo, grava com nome aleatório fora de `public` e só entrega o download a quem pode ver o chamado; anexos de nota interna ficam restritos à equipe. Imagens (png/jpg) têm miniatura e visualização ampliada. Quem enviou o arquivo, ou a equipe, pode removê-lo (com confirmação), e a remoção aparece no histórico do chamado.
@@ -61,6 +64,10 @@ npm run storage:cleanup -- --apply # apaga de verdade
 
 Por segurança, arquivos com menos de 1 hora são ignorados (podem ser um upload em andamento; ajuste com `--grace-minutes=N`).
 
+### Atrás de um proxy
+
+O limite por IP lê `X-Forwarded-For`, mas só se `TRUST_PROXY=1` estiver definido. Ligue isso apenas quando houver um proxy/CDN que sobrescreva o cabeçalho; caso contrário, qualquer cliente poderia forjá-lo. Sem a variável, vale só o limite por conta.
+
 ## Testes
 
 ```bash
@@ -70,6 +77,10 @@ npm run lint
 ```
 
 Os testes e2e usam o Microsoft Edge instalado e compartilham o banco de desenvolvimento, por isso rodam em série. Rode o seed antes para garantir os usuários de demonstração.
+
+### Integração contínua
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada push na `main` e em pull requests, em dois jobs: lint + `tsc` + testes unitários, e os testes e2e com um Postgres de serviço (migrations + seed, Chromium do Playwright). Se o e2e falhar, o relatório do Playwright fica como artefato por 7 dias.
 
 ## Estrutura
 
