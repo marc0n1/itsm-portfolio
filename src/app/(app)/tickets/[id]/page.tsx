@@ -222,6 +222,9 @@ async function TicketContent({ params }: { params: Params }) {
 
           {staff && (
             <form
+              // O React reseta o form após a action; sem a key ele voltaria aos
+              // valores ANTIGOS e um 2º "Salvar" desfaria a alteração.
+              key={`${ticket.status}|${ticket.priority}|${ticket.assignee?.id ?? ""}`}
               action={updateTicket}
               className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm"
             >

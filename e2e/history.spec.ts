@@ -62,8 +62,9 @@ test("equipe vê a abertura e cada alteração registrada, com autor", async ({
   await expect(history.getByText("Responsável: ninguém → Carlos Agente")).toBeVisible();
 
   // Salvar sem mudar nada não gera evento novo.
-  await page.reload();
   await expect(history.locator("li")).toHaveCount(4);
+  // Sem recarregar: o formulário precisa manter os valores recém-salvos.
+  await expect(panel.getByLabel("Status")).toHaveValue("IN_PROGRESS");
   await panel.getByRole("button", { name: "Salvar alterações" }).click();
   await page.reload();
   await expect(history.locator("li")).toHaveCount(4);
