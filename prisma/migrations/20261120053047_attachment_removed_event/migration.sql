@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TicketEventType" ADD VALUE 'ATTACHMENT_REMOVED';

@@ -18,7 +18,8 @@ import {
 import { PriorityBadge, StatusBadge } from "../../badges";
 import { updateTicket } from "../actions";
 import { CommentForm } from "./comment-form";
-import { formatBytes } from "@/lib/attachments";
+import { ImageThumb, RemoveAttachmentButton } from "./attachment-item";
+import { PREVIEWABLE, formatBytes } from "@/lib/attachments";
 
 type Params = Promise<{ id: string }>;
 
@@ -78,7 +79,7 @@ async function TicketContent({ params }: { params: Params }) {
               {ticket.requester.name} · {formatDate(ticket.createdAt)}
             </p>
             <p className="whitespace-pre-wrap text-sm">{ticket.description}</p>
-            <AttachmentList ticketId={ticket.id} items={attachmentsOf(null)} />
+            <AttachmentList ticketId={ticket.id} items={attachmentsOf(null)} user={{ id: user.id, staff }} />
           </section>
 
           {answers.length > 0 && (
@@ -134,7 +135,11 @@ async function TicketContent({ params }: { params: Params }) {
                   )}
                 </p>
                 <p className="whitespace-pre-wrap text-sm">{c.body}</p>
-                <AttachmentList ticketId={ticket.id} items={attachmentsOf(c.id)} />
+                <AttachmentList
+                  ticketId={ticket.id}
+                  items={attachmentsOf(c.id)}
+                  user={{ id: user.id, staff }}
+                />
               </article>
             ))}
 
@@ -270,25 +275,50 @@ async function TicketContent({ params }: { params: Params }) {
 function AttachmentList({
   ticketId,
   items,
+  user,
 }: {
   ticketId: string;
-  items: { id: string; filename: string; size: number }[];
+  items: {
+    id: string;
+    filename: string;
+    size: number;
+    mimeType: string;
+    uploaderId: string;
+  }[];
+  user: { id: string; staff: boolean };
 }) {
   if (items.length === 0) return null;
   return (
-    <ul data-testid="attachments" className="mt-3 flex flex-wrap gap-2">
-      {items.map((a) => (
-        <li key={a.id}>
-          <a
-            href={`/tickets/${ticketId}/attachments/${a.id}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-indigo-700 hover:bg-zinc-100"
-          >
-            <span aria-hidden>📎</span>
-            {a.filename}
-            <span className="text-zinc-500">({formatBytes(a.size)})</span>
-          </a>
-        </li>
-      ))}
+    <ul data-testid="attachments" className="mt-3 flex flex-wrap items-start gap-3">
+      {items.map((a) => {
+        const href = `/tickets/${ticketId}/attachments/${a.id}`;
+        // Quem enviou ou a equipe pode remover (o servidor confere de novo).
+        const canRemove = user.staff || a.uploaderId === user.id;
+        return (
+          <li key={a.id} className="space-y-1">
+            {PREVIEWABLE.has(a.mimeType) && (
+              <ImageThumb src={`${href}?inline=1`} alt={a.filename} />
+            )}
+            <div className="flex items-center gap-1">
+              <a
+                href={href}
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-indigo-700 hover:bg-zinc-100"
+              >
+                <span aria-hidden>📎</span>
+                {a.filename}
+                <span className="text-zinc-500">({formatBytes(a.size)})</span>
+              </a>
+              {canRemove && (
+                <RemoveAttachmentButton
+                  ticketId={ticketId}
+                  attachmentId={a.id}
+                  filename={a.filename}
+                />
+              )}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -308,6 +338,8 @@ function describeEvent(e: {
       return `Status: ${status(e.from)} → ${status(e.to)}`;
     case "PRIORITY":
       return `Prioridade: ${priority(e.from)} → ${priority(e.to)}`;
+    case "ATTACHMENT_REMOVED":
+      return `Anexo removido: ${e.from ?? "arquivo"}`;
     case "ASSIGNEE":
       return `Responsável: ${e.from ?? "ninguém"} → ${e.to ?? "ninguém"}`;
     default:

@@ -80,6 +80,7 @@ export async function getTicket(user: CurrentUser, id: string) {
         select: {
           id: true,
           commentId: true,
+          uploaderId: true,
           filename: true,
           size: true,
           mimeType: true,

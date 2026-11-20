@@ -36,6 +36,7 @@ enum TicketEventType {
   STATUS
   PRIORITY
   ASSIGNEE
+  ATTACHMENT_REMOVED
 }
 
 model Organization {

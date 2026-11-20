@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
 import { ticketScope } from "@/lib/ticket-queries";
 import { readStored } from "@/lib/attachment-storage";
+import { PREVIEWABLE } from "@/lib/attachments";
 
 /**
  * Download autenticado. O arquivo nunca é público: a mesma regra de
@@ -10,7 +11,7 @@ import { readStored } from "@/lib/attachment-storage";
  * anexos de nota interna só para a equipe).
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string; attachmentId: string }> },
 ) {
   const { id, attachmentId } = await ctx.params;
@@ -36,13 +37,20 @@ export async function GET(
     return new Response("Arquivo indisponível.", { status: 404 });
   }
 
+  // Pré-visualização (?inline=1) só para PNG/JPEG, cujo tipo vem da lista de
+  // permissão (nunca do cliente). Todo o resto sempre baixa.
+  const inline =
+    new URL(req.url).searchParams.get("inline") === "1" &&
+    PREVIEWABLE.has(attachment.mimeType);
+
   return new Response(new Uint8Array(body), {
     headers: {
       "Content-Type": attachment.mimeType,
       "Content-Length": String(body.length),
-      // Sempre baixar (nunca renderizar na nossa origem) + sem sniffing.
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`,
+      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`,
       "X-Content-Type-Options": "nosniff",
+      // Mesmo se algo escapasse, a resposta não executa nem carrega nada.
+      "Content-Security-Policy": "default-src 'none'; sandbox",
       "Cache-Control": "private, no-store",
     },
   });

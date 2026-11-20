@@ -26,6 +26,9 @@ const RULES: Record<string, Rule> = {
   csv: { mime: "text/csv", check: looksLikeText },
 };
 
+/** Tipos que o navegador pode exibir com segurança dentro da página. */
+export const PREVIEWABLE = new Set(["image/png", "image/jpeg"]);
+
 export const ALLOWED_EXTENSIONS = Object.keys(RULES);
 export const ACCEPT_ATTR = ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(",");
 

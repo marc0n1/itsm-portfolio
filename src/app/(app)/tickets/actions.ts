@@ -274,3 +274,50 @@ export async function addComment(
   revalidatePath(`/tickets/${ticket.id}`);
   return { saved: true };
 }
+
+/**
+ * Remove um anexo. Quem pode: quem enviou o arquivo OU a equipe de atendimento,
+ * sempre dentro do escopo do chamado. A remoção fica na trilha de auditoria.
+ */
+export async function removeAttachment(formData: FormData) {
+  const user = await requireUser();
+
+  const parsed = z
+    .object({ ticketId: z.string().min(1), attachmentId: z.string().min(1) })
+    .safeParse({
+      ticketId: formData.get("ticketId"),
+      attachmentId: formData.get("attachmentId"),
+    });
+  if (!parsed.success) return;
+
+  const staff = canWorkTickets(user.role);
+  const attachment = await prisma.attachment.findFirst({
+    where: {
+      id: parsed.data.attachmentId,
+      ticketId: parsed.data.ticketId,
+      ticket: ticketScope(user),
+      // Mesma visibilidade da leitura: anexo de nota interna é só da equipe.
+      ...(staff ? {} : { OR: [{ commentId: null }, { comment: { internal: false } }] }),
+    },
+    select: { id: true, ticketId: true, uploaderId: true, filename: true, storageKey: true },
+  });
+  if (!attachment) return;
+  if (!staff && attachment.uploaderId !== user.id) return;
+
+  // Banco primeiro: se a remoção do arquivo falhar, sobra um arquivo órfão
+  // (inofensivo), nunca um anexo na tela que não baixa.
+  await prisma.$transaction([
+    prisma.attachment.delete({ where: { id: attachment.id } }),
+    prisma.ticketEvent.create({
+      data: {
+        ticketId: attachment.ticketId,
+        actorId: user.id,
+        type: "ATTACHMENT_REMOVED",
+        from: attachment.filename,
+      },
+    }),
+  ]);
+  await removeFiles([attachment]);
+
+  revalidatePath(`/tickets/${attachment.ticketId}`);
+}
