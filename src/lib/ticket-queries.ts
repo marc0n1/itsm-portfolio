@@ -75,6 +75,16 @@ export async function getTicket(user: CurrentUser, id: string) {
   });
 }
 
+/** Trilha de auditoria: interna, só a equipe a recebe (e só do próprio escopo). */
+export async function listTicketEvents(user: CurrentUser, ticketId: string) {
+  if (!canWorkTickets(user.role)) return [];
+  return prisma.ticketEvent.findMany({
+    where: { ticketId, ticket: ticketScope(user) },
+    orderBy: { createdAt: "asc" },
+    include: { actor: { select: { name: true } } },
+  });
+}
+
 export async function listAssignees(user: CurrentUser) {
   return prisma.user.findMany({
     where: {

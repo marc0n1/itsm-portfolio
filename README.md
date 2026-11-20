@@ -9,6 +9,7 @@ Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo
 - **Autenticação e papéis:** Administrador, Agente e Solicitante, com sessão por JWT em cookie e rotas protegidas.
 - **Chamados:** criação, listagem, detalhe, comentários públicos e notas internas (invisíveis ao solicitante). Cada solicitante só enxerga os próprios chamados.
 - **Catálogo de serviços:** o admin cria serviços com formulários dinâmicos; o servidor valida as respostas e serviços desativados não aceitam novos chamados.
+- **Histórico de auditoria:** linha do tempo interna em cada chamado (abertura e mudanças de status, prioridade e responsável, com autor e data). Só a equipe vê.
 - **Quadro Kanban:** arrastar e soltar entre colunas de status (com seletor "Mover para" como alternativa), ordenado por urgência, com filtro "Atribuídos a mim". Visível só para a equipe.
 - **SLA:** metas de primeira resposta e resolução configuráveis pelo admin. O relógio pausa em "Aguardando" e retoma ao sair, e só o comentário público da equipe conta como primeira resposta.
 - **Dashboard:** indicadores de SLA (conformidade, em risco, estourados, tempos médios) e gráfico diário, restritos à equipe.

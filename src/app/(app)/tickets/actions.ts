@@ -8,6 +8,7 @@ import { canWorkTickets } from "@/lib/permissions";
 import { z } from "zod";
 import { TicketStatus } from "@/generated/prisma/enums";
 import { statusTransition } from "@/lib/ticket-status";
+import { diffTicket } from "@/lib/ticket-events";
 import { ticketScope } from "@/lib/ticket-queries";
 import { buildAnswers, parseFields, type Answer } from "@/lib/services";
 import {
@@ -70,6 +71,7 @@ export async function createTicket(
       ...parsed.data,
       organizationId: user.organizationId,
       requesterId: user.id,
+      events: { create: { type: "CREATED", actorId: user.id } },
       ...(serviceId ? { serviceId, formData: answers } : {}),
     },
     select: { id: true },
@@ -97,13 +99,17 @@ export async function updateTicket(formData: FormData) {
     where: { id: ticketId, ...ticketScope(user) },
     select: {
       id: true,
+      status: true,
+      priority: true,
       resolvedAt: true,
       slaPausedAt: true,
       slaPausedSeconds: true,
+      assignee: { select: { id: true, name: true } },
     },
   });
   if (!ticket) notFound();
 
+  let assigneeName: string | null = null;
   if (assigneeId) {
     // O responsável precisa ser da equipe de atendimento da MESMA organização.
     const assignee = await prisma.user.findFirst({
@@ -112,10 +118,20 @@ export async function updateTicket(formData: FormData) {
         organizationId: user.organizationId,
         role: { in: ["AGENT", "ADMIN"] },
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!assignee) return;
+    assigneeName = assignee.name;
   }
+
+  const changes = diffTicket(
+    {
+      status: ticket.status,
+      priority: ticket.priority,
+      assignee: ticket.assignee?.name ?? null,
+    },
+    { status, priority, assignee: assigneeName },
+  );
 
   await prisma.ticket.update({
     where: { id: ticket.id },
@@ -123,6 +139,9 @@ export async function updateTicket(formData: FormData) {
       priority,
       assigneeId,
       ...statusTransition(ticket, status),
+      events: {
+        create: changes.map((c) => ({ ...c, actorId: user.id })),
+      },
     },
   });
 
@@ -164,7 +183,17 @@ export async function moveTicket(
 
   await prisma.ticket.update({
     where: { id: ticket.id },
-    data: statusTransition(ticket, parsedStatus.data),
+    data: {
+      ...statusTransition(ticket, parsedStatus.data),
+      events: {
+        create: {
+          type: "STATUS",
+          from: ticket.status,
+          to: parsedStatus.data,
+          actorId: user.id,
+        },
+      },
+    },
   });
 
   revalidateTicketViews(ticket.id);

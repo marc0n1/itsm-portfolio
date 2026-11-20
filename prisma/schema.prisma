@@ -31,6 +31,13 @@ enum Priority {
   CRITICAL
 }
 
+enum TicketEventType {
+  CREATED
+  STATUS
+  PRIORITY
+  ASSIGNEE
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -92,6 +99,7 @@ model User {
   requested    Ticket[]     @relation("TicketRequester")
   assigned     Ticket[]     @relation("TicketAssignee")
   comments     Comment[]
+  events       TicketEvent[]
 
   @@index([organizationId])
 }
@@ -125,6 +133,7 @@ model Ticket {
   assignee     User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
   service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   comments     Comment[]
+  events       TicketEvent[]
 
   @@index([organizationId, status])
   @@index([assigneeId])
@@ -143,4 +152,22 @@ model Comment {
   author User   @relation(fields: [authorId], references: [id])
 
   @@index([ticketId])
+}
+
+/// Trilha de auditoria do chamado. `from`/`to` guardam um retrato legível
+/// (status/prioridade em enum; responsável pelo NOME), para a linha do tempo
+/// continuar correta mesmo que o usuário seja renomeado ou removido.
+model TicketEvent {
+  id        String          @id @default(cuid())
+  ticketId  String
+  actorId   String
+  type      TicketEventType
+  from      String?
+  to        String?
+  createdAt DateTime        @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId, createdAt])
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/dal";
 import { ROLE_LABEL, canWorkTickets } from "@/lib/permissions";
-import { getTicket, listAssignees } from "@/lib/ticket-queries";
+import { getTicket, listAssignees, listTicketEvents } from "@/lib/ticket-queries";
 import { displayAnswer, parseAnswers } from "@/lib/services";
 import { computeSla, formatDuration, type SlaClock } from "@/lib/sla";
 import { getSlaPolicies } from "@/lib/sla-queries";
@@ -42,6 +42,7 @@ async function TicketContent({ params }: { params: Params }) {
   const staff = canWorkTickets(user.role);
   const assignees = staff ? await listAssignees(user) : [];
   const answers = parseAnswers(ticket.formData);
+  const events = await listTicketEvents(user, ticket.id);
   // SLA é indicador interno: só a equipe de atendimento o vê.
   const sla = staff
     ? computeSla(
@@ -201,6 +202,25 @@ async function TicketContent({ params }: { params: Params }) {
           )}
 
           {staff && (
+            <section
+              data-testid="history"
+              className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm"
+            >
+              <h2 className="font-medium">Histórico</h2>
+              <ol className="space-y-2">
+                {events.map((e) => (
+                  <li key={e.id} className="space-y-0.5">
+                    <p>{describeEvent(e)}</p>
+                    <p className="text-xs text-zinc-500">
+                      {e.actor.name} · {formatDate(e.createdAt)}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          {staff && (
             <form
               action={updateTicket}
               className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm"
@@ -262,6 +282,28 @@ async function TicketContent({ params }: { params: Params }) {
       </div>
     </div>
   );
+}
+
+function describeEvent(e: {
+  type: string;
+  from: string | null;
+  to: string | null;
+}) {
+  const status = (v: string | null) => STATUS_LABEL[v as keyof typeof STATUS_LABEL] ?? v;
+  const priority = (v: string | null) =>
+    PRIORITY_LABEL[v as keyof typeof PRIORITY_LABEL] ?? v;
+  switch (e.type) {
+    case "CREATED":
+      return "Chamado aberto";
+    case "STATUS":
+      return `Status: ${status(e.from)} → ${status(e.to)}`;
+    case "PRIORITY":
+      return `Prioridade: ${priority(e.from)} → ${priority(e.to)}`;
+    case "ASSIGNEE":
+      return `Responsável: ${e.from ?? "ninguém"} → ${e.to ?? "ninguém"}`;
+    default:
+      return e.type;
+  }
 }
 
 function SlaRow({
