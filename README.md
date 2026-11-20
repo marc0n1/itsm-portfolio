@@ -1,6 +1,6 @@
 # ITSM Portfolio
 
-![CI](../../actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/marc0n1/itsm-portfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/marc0n1/itsm-portfolio/actions/workflows/ci.yml)
 
 Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo de serviços, quadro Kanban, SLA e dashboard de indicadores.
 
