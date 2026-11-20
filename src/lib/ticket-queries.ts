@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { CurrentUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
 import type { TicketFilters } from "@/lib/tickets";
+import { paginate } from "@/lib/pagination";
 
 /**
  * Escopo de visibilidade, aplicado em TODA consulta de chamados:
@@ -17,7 +18,11 @@ export function ticketScope(user: CurrentUser): Prisma.TicketWhereInput {
   };
 }
 
-export async function listTickets(user: CurrentUser, filters: TicketFilters) {
+/** Filtros da listagem + escopo de visibilidade do usuário. */
+function ticketsWhere(
+  user: CurrentUser,
+  filters: TicketFilters,
+): Prisma.TicketWhereInput {
   const where: Prisma.TicketWhereInput = { ...ticketScope(user) };
 
   if (filters.status) where.status = filters.status;
@@ -33,27 +38,63 @@ export async function listTickets(user: CurrentUser, filters: TicketFilters) {
       ...(asNumber !== null ? [{ number: asNumber }] : []),
     ];
   }
+  return where;
+}
 
+const ticketListSelect = {
+  id: true,
+  number: true,
+  title: true,
+  status: true,
+  priority: true,
+  createdAt: true,
+  resolvedAt: true,
+  firstResponseAt: true,
+  slaPausedAt: true,
+  slaPausedSeconds: true,
+  requester: { select: { name: true } },
+  assignee: { select: { name: true } },
+  service: { select: { name: true } },
+} satisfies Prisma.TicketSelect;
+
+/**
+ * Ordem estável: sem o desempate por `id`, chamados criados no mesmo instante
+ * poderiam trocar de lugar entre uma página e outra (repetir ou sumir).
+ */
+const newestFirst: Prisma.TicketOrderByWithRelationInput[] = [
+  { createdAt: "desc" },
+  { id: "desc" },
+];
+
+/** Os 100 mais recentes (usado pelo quadro Kanban, que não pagina). */
+export async function listTickets(user: CurrentUser, filters: TicketFilters) {
   return prisma.ticket.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
+    where: ticketsWhere(user, filters),
+    orderBy: newestFirst,
     take: 100,
-    select: {
-      id: true,
-      number: true,
-      title: true,
-      status: true,
-      priority: true,
-      createdAt: true,
-      resolvedAt: true,
-      firstResponseAt: true,
-      slaPausedAt: true,
-      slaPausedSeconds: true,
-      requester: { select: { name: true } },
-      assignee: { select: { name: true } },
-      service: { select: { name: true } },
-    },
+    select: ticketListSelect,
   });
+}
+
+/** Uma página da listagem, com o total para montar a navegação. */
+export async function listTicketsPage(
+  user: CurrentUser,
+  filters: TicketFilters,
+  requestedPage: number,
+) {
+  const where = ticketsWhere(user, filters);
+  const total = await prisma.ticket.count({ where });
+  // A página é ajustada ao total (além do fim => última), nunca uma tela vazia.
+  const info = paginate({ page: requestedPage, total });
+
+  const items = await prisma.ticket.findMany({
+    where,
+    orderBy: newestFirst,
+    skip: info.skip,
+    take: info.pageSize,
+    select: ticketListSelect,
+  });
+  return { items, info };
 }
 
 export async function getTicket(user: CurrentUser, id: string) {

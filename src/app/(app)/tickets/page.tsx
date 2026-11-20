@@ -3,7 +3,9 @@ import Link from "next/link";
 import Form from "next/form";
 import { requireUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
-import { listTickets } from "@/lib/ticket-queries";
+import { listTicketsPage } from "@/lib/ticket-queries";
+import { parsePage } from "@/lib/pagination";
+import { Pagination } from "./pagination";
 import {
   PRIORITIES,
   PRIORITY_LABEL,
@@ -59,7 +61,11 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
     mine: first(raw.mine),
   });
 
-  const tickets = await listTickets(user, filters);
+  const { items: tickets, info } = await listTicketsPage(
+    user,
+    filters,
+    parsePage(first(raw.page)),
+  );
   const staff = canWorkTickets(user.role);
   // SLA é indicador interno: só a equipe de atendimento o vê.
   const policies = staff ? await getSlaPolicies(user.organizationId) : null;
@@ -156,7 +162,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {tickets.map((t) => (
-                <tr key={t.id} className="hover:bg-zinc-50">
+                <tr key={t.id} data-testid="ticket-row" className="hover:bg-zinc-50">
                   <td className="px-4 py-3 text-zinc-500">#{t.number}</td>
                   <td className="px-4 py-3">
                     <Link
@@ -191,11 +197,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
         </div>
       )}
 
-      {tickets.length === 100 && (
-        <p className="text-xs text-zinc-500">
-          Mostrando os 100 mais recentes. Use os filtros para refinar.
-        </p>
-      )}
+      {tickets.length > 0 && <Pagination info={info} filters={filters} />}
     </div>
   );
 }
