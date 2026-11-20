@@ -47,6 +47,7 @@ export async function listTickets(user: CurrentUser, filters: TicketFilters) {
       createdAt: true,
       requester: { select: { name: true } },
       assignee: { select: { name: true } },
+      service: { select: { name: true } },
     },
   });
 }

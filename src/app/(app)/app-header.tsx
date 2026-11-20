@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/dal";
-import { ROLE_LABEL, canManageServices } from "@/lib/permissions";
+import {
+  ROLE_LABEL,
+  canManageServices,
+  canWorkTickets,
+} from "@/lib/permissions";
 import { logout } from "../login/actions";
 
 export async function AppHeader() {
@@ -19,6 +23,14 @@ export async function AppHeader() {
           <Link href="/tickets" className="text-zinc-600 hover:text-zinc-900">
             Chamados
           </Link>
+          {canWorkTickets(user.role) && (
+            <Link
+              href="/tickets/board"
+              className="text-zinc-600 hover:text-zinc-900"
+            >
+              Quadro
+            </Link>
+          )}
           {canManageServices(user.role) && (
             <Link
               href="/admin/services"

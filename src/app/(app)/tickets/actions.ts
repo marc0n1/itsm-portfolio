@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
+import { z } from "zod";
+import { TicketStatus } from "@/generated/prisma/enums";
+import { resolvedAtFor } from "@/lib/ticket-status";
 import { ticketScope } from "@/lib/ticket-queries";
 import { buildAnswers, parseFields, type Answer } from "@/lib/services";
 import {
@@ -109,21 +112,56 @@ export async function updateTicket(formData: FormData) {
     if (!assignee) return;
   }
 
-  const isDone = status === "RESOLVED" || status === "CLOSED";
-
   await prisma.ticket.update({
     where: { id: ticket.id },
     data: {
       status,
       priority,
       assigneeId,
-      resolvedAt: isDone ? (ticket.resolvedAt ?? new Date()) : null,
+      resolvedAt: resolvedAtFor(status, ticket.resolvedAt),
     },
   });
 
-  revalidatePath(`/tickets/${ticket.id}`);
+  revalidateTicketViews(ticket.id);
+}
+
+function revalidateTicketViews(ticketId: string) {
+  revalidatePath(`/tickets/${ticketId}`);
   revalidatePath("/tickets");
+  revalidatePath("/tickets/board");
   revalidatePath("/dashboard");
+}
+
+/** Move um chamado de coluna no Kanban (altera só o status). */
+export async function moveTicket(
+  ticketId: string,
+  status: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireRole("ADMIN", "AGENT");
+
+  const parsedStatus = z.enum(TicketStatus).safeParse(status);
+  if (!parsedStatus.success || typeof ticketId !== "string") {
+    return { ok: false, error: "Status inválido." };
+  }
+
+  // Mesmo escopo das consultas: chamado de outra organização não é encontrado.
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId, ...ticketScope(user) },
+    select: { id: true, status: true, resolvedAt: true },
+  });
+  if (!ticket) return { ok: false, error: "Chamado não encontrado." };
+  if (ticket.status === parsedStatus.data) return { ok: true };
+
+  await prisma.ticket.update({
+    where: { id: ticket.id },
+    data: {
+      status: parsedStatus.data,
+      resolvedAt: resolvedAtFor(parsedStatus.data, ticket.resolvedAt),
+    },
+  });
+
+  revalidateTicketViews(ticket.id);
+  return { ok: true };
 }
 
 export async function addComment(formData: FormData) {
