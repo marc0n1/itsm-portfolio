@@ -100,6 +100,7 @@ model User {
   assigned     Ticket[]     @relation("TicketAssignee")
   comments     Comment[]
   events       TicketEvent[]
+  uploads      Attachment[]
 
   @@index([organizationId])
 }
@@ -134,6 +135,7 @@ model Ticket {
   service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   comments     Comment[]
   events       TicketEvent[]
+  attachments  Attachment[]
 
   @@index([organizationId, status])
   @@index([assigneeId])
@@ -148,8 +150,9 @@ model Comment {
   internal  Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author User   @relation(fields: [authorId], references: [id])
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
 
   @@index([ticketId])
 }
@@ -170,4 +173,26 @@ model TicketEvent {
   actor  User   @relation(fields: [actorId], references: [id])
 
   @@index([ticketId, createdAt])
+}
+
+/// Metadados do anexo. O arquivo fica em disco (storage/uploads/<storageKey>),
+/// com nome aleatório: o nome original só existe aqui, para exibição.
+/// `commentId` nulo = anexado na abertura do chamado.
+model Attachment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  commentId  String?
+  uploaderId String
+  filename   String
+  mimeType   String
+  size       Int
+  storageKey String   @unique
+  createdAt  DateTime @default(now())
+
+  ticket   Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment  Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploader User     @relation(fields: [uploaderId], references: [id])
+
+  @@index([ticketId])
+  @@index([commentId])
 }

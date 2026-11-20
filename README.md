@@ -9,6 +9,7 @@ Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo
 - **Autenticação e papéis:** Administrador, Agente e Solicitante, com sessão por JWT em cookie e rotas protegidas.
 - **Chamados:** criação, listagem, detalhe, comentários públicos e notas internas (invisíveis ao solicitante). Cada solicitante só enxerga os próprios chamados.
 - **Catálogo de serviços:** o admin cria serviços com formulários dinâmicos; o servidor valida as respostas e serviços desativados não aceitam novos chamados.
+- **Anexos:** upload na abertura do chamado e nos comentários (até 3 arquivos de 5 MB: png, jpg, pdf, txt, log, csv). O servidor valida extensão e assinatura do conteúdo, grava com nome aleatório fora de `public` e só entrega o download a quem pode ver o chamado; anexos de nota interna ficam restritos à equipe.
 - **Histórico de auditoria:** linha do tempo interna em cada chamado (abertura e mudanças de status, prioridade e responsável, com autor e data). Só a equipe vê.
 - **Quadro Kanban:** arrastar e soltar entre colunas de status (com seletor "Mover para" como alternativa), ordenado por urgência, com filtro "Atribuídos a mim". Visível só para a equipe.
 - **SLA:** metas de primeira resposta e resolução configuráveis pelo admin. O relógio pausa em "Aguardando" e retoma ao sair, e só o comentário público da equipe conta como primeira resposta.
@@ -47,6 +48,8 @@ Senha de todos: `demo1234`
 | Admin       | admin@demo.com        |
 | Agente      | agente@demo.com       |
 | Solicitante | solicitante@demo.com  |
+
+Os anexos ficam em `storage/uploads` (ignorado pelo git); use `UPLOAD_DIR` para trocar o local.
 
 ## Testes
 

@@ -71,6 +71,20 @@ export async function getTicket(user: CurrentUser, id: string) {
         orderBy: { createdAt: "asc" },
         include: { author: { select: { name: true, role: true } } },
       },
+      // Anexos de nota interna seguem a nota: solicitante não os recebe.
+      attachments: {
+        where: showInternal
+          ? {}
+          : { OR: [{ commentId: null }, { comment: { internal: false } }] },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          commentId: true,
+          filename: true,
+          size: true,
+          mimeType: true,
+        },
+      },
     },
   });
 }

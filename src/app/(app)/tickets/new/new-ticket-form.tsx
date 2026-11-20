@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { createTicket } from "../actions";
+import { AttachmentField } from "../attachment-field";
 import { PRIORITY_LABEL } from "@/lib/tickets";
 import { fieldInputName, type FieldDef } from "@/lib/services";
 import type { Priority } from "@/generated/prisma/enums";
@@ -105,6 +106,8 @@ export function NewTicketForm({
           ))}
         </select>
       </div>
+
+      <AttachmentField />
 
       {state?.error && (
         <p role="alert" className="text-sm text-red-600">

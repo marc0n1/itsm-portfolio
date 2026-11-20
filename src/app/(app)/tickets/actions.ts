@@ -9,6 +9,7 @@ import { z } from "zod";
 import { TicketStatus } from "@/generated/prisma/enums";
 import { statusTransition } from "@/lib/ticket-status";
 import { diffTicket } from "@/lib/ticket-events";
+import { filesFrom, removeFiles, storeFiles } from "@/lib/attachment-storage";
 import { ticketScope } from "@/lib/ticket-queries";
 import { buildAnswers, parseFields, type Answer } from "@/lib/services";
 import {
@@ -66,16 +67,28 @@ export async function createTicket(
     answers = built.answers;
   }
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      ...parsed.data,
-      organizationId: user.organizationId,
-      requesterId: user.id,
-      events: { create: { type: "CREATED", actorId: user.id } },
-      ...(serviceId ? { serviceId, formData: answers } : {}),
-    },
-    select: { id: true },
-  });
+  const upload = await storeFiles(filesFrom(formData));
+  if ("error" in upload) return { error: upload.error, values };
+
+  let ticket: { id: string };
+  try {
+    ticket = await prisma.ticket.create({
+      data: {
+        ...parsed.data,
+        organizationId: user.organizationId,
+        requesterId: user.id,
+        events: { create: { type: "CREATED", actorId: user.id } },
+        attachments: {
+          create: upload.stored.map((f) => ({ ...f, uploaderId: user.id })),
+        },
+        ...(serviceId ? { serviceId, formData: answers } : {}),
+      },
+      select: { id: true },
+    });
+  } catch (err) {
+    await removeFiles(upload.stored);
+    throw err;
+  }
 
   redirect(`/tickets/${ticket.id}`);
 }
@@ -200,7 +213,10 @@ export async function moveTicket(
   return { ok: true };
 }
 
-export async function addComment(formData: FormData) {
+export async function addComment(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const user = await requireUser();
 
   const parsed = commentSchema.safeParse({
@@ -208,7 +224,7 @@ export async function addComment(formData: FormData) {
     body: formData.get("body"),
     internal: formData.get("internal") ?? undefined,
   });
-  if (!parsed.success) return;
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   // Mesmo escopo da leitura: solicitante só comenta nos próprios chamados.
   const ticket = await prisma.ticket.findFirst({
@@ -221,14 +237,31 @@ export async function addComment(formData: FormData) {
   // Nota interna só existe para a equipe; solicitante nunca a cria.
   const internal = staff && parsed.data.internal === "on";
 
-  await prisma.comment.create({
-    data: {
-      ticketId: ticket.id,
-      authorId: user.id,
-      body: parsed.data.body,
-      internal,
-    },
-  });
+  const upload = await storeFiles(filesFrom(formData));
+  if ("error" in upload) {
+    return { error: upload.error, values: { body: parsed.data.body } };
+  }
+
+  try {
+    await prisma.comment.create({
+      data: {
+        ticketId: ticket.id,
+        authorId: user.id,
+        body: parsed.data.body,
+        internal,
+        attachments: {
+          create: upload.stored.map((f) => ({
+            ...f,
+            ticketId: ticket.id,
+            uploaderId: user.id,
+          })),
+        },
+      },
+    });
+  } catch (err) {
+    await removeFiles(upload.stored);
+    throw err;
+  }
 
   // SLA: a primeira resposta PÚBLICA da equipe encerra o relógio de resposta.
   if (staff && !internal && !ticket.firstResponseAt) {
@@ -239,4 +272,5 @@ export async function addComment(formData: FormData) {
   }
 
   revalidatePath(`/tickets/${ticket.id}`);
+  return { saved: true };
 }

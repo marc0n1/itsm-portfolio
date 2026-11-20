@@ -16,7 +16,9 @@ import {
   formatDate,
 } from "@/lib/tickets";
 import { PriorityBadge, StatusBadge } from "../../badges";
-import { addComment, updateTicket } from "../actions";
+import { updateTicket } from "../actions";
+import { CommentForm } from "./comment-form";
+import { formatBytes } from "@/lib/attachments";
 
 type Params = Promise<{ id: string }>;
 
@@ -43,6 +45,8 @@ async function TicketContent({ params }: { params: Params }) {
   const assignees = staff ? await listAssignees(user) : [];
   const answers = parseAnswers(ticket.formData);
   const events = await listTicketEvents(user, ticket.id);
+  const attachmentsOf = (commentId: string | null) =>
+    ticket.attachments.filter((a) => a.commentId === commentId);
   // SLA é indicador interno: só a equipe de atendimento o vê.
   const sla = staff
     ? computeSla(
@@ -74,6 +78,7 @@ async function TicketContent({ params }: { params: Params }) {
               {ticket.requester.name} · {formatDate(ticket.createdAt)}
             </p>
             <p className="whitespace-pre-wrap text-sm">{ticket.description}</p>
+            <AttachmentList ticketId={ticket.id} items={attachmentsOf(null)} />
           </section>
 
           {answers.length > 0 && (
@@ -129,36 +134,11 @@ async function TicketContent({ params }: { params: Params }) {
                   )}
                 </p>
                 <p className="whitespace-pre-wrap text-sm">{c.body}</p>
+                <AttachmentList ticketId={ticket.id} items={attachmentsOf(c.id)} />
               </article>
             ))}
 
-            <form action={addComment} className="space-y-2">
-              <input type="hidden" name="ticketId" value={ticket.id} />
-              <textarea
-                name="body"
-                required
-                maxLength={5000}
-                rows={3}
-                placeholder="Escreva um comentário..."
-                className={field}
-              />
-              <div className="flex items-center justify-between">
-                {staff ? (
-                  <label className="flex items-center gap-1.5 text-sm text-zinc-700">
-                    <input type="checkbox" name="internal" />
-                    Nota interna (invisível ao solicitante)
-                  </label>
-                ) : (
-                  <span />
-                )}
-                <button
-                  type="submit"
-                  className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                  Comentar
-                </button>
-              </div>
-            </form>
+            <CommentForm ticketId={ticket.id} staff={staff} />
           </section>
         </div>
 
@@ -284,6 +264,32 @@ async function TicketContent({ params }: { params: Params }) {
         </aside>
       </div>
     </div>
+  );
+}
+
+function AttachmentList({
+  ticketId,
+  items,
+}: {
+  ticketId: string;
+  items: { id: string; filename: string; size: number }[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <ul data-testid="attachments" className="mt-3 flex flex-wrap gap-2">
+      {items.map((a) => (
+        <li key={a.id}>
+          <a
+            href={`/tickets/${ticketId}/attachments/${a.id}`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-indigo-700 hover:bg-zinc-100"
+          >
+            <span aria-hidden>📎</span>
+            {a.filename}
+            <span className="text-zinc-500">({formatBytes(a.size)})</span>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
