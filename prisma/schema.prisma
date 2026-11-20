@@ -1,0 +1,97 @@
+// Schema do ITSM Portfolio.
+// Multi-tenant "preparado": toda entidade de negócio carrega organizationId.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  AGENT
+  REQUESTER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users   User[]
+  tickets Ticket[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String   @unique
+  passwordHash   String
+  role           Role     @default(REQUESTER)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  requested    Ticket[]     @relation("TicketRequester")
+  assigned     Ticket[]     @relation("TicketAssignee")
+  comments     Comment[]
+
+  @@index([organizationId])
+}
+
+model Ticket {
+  id             String       @id @default(cuid())
+  number         Int          @default(autoincrement())
+  organizationId String
+  title          String
+  description    String
+  status         TicketStatus @default(OPEN)
+  priority       Priority     @default(MEDIUM)
+  requesterId    String
+  assigneeId     String?
+  dueAt          DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  resolvedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  requester    User         @relation("TicketRequester", fields: [requesterId], references: [id])
+  assignee     User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  comments     Comment[]
+
+  @@index([organizationId, status])
+  @@index([assigneeId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+}
