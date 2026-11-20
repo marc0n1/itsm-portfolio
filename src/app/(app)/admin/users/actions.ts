@@ -117,7 +117,11 @@ export async function resetPassword(
   await prisma.$transaction([
     prisma.user.update({
       where: { id: target.id },
-      data: { passwordHash: await bcrypt.hash(parsed.data.password, HASH_ROUNDS) },
+      data: {
+        passwordHash: await bcrypt.hash(parsed.data.password, HASH_ROUNDS),
+        // Derruba as sessões que a pessoa já tinha abertas.
+        passwordChangedAt: new Date(),
+      },
     }),
     // Quem estava bloqueado por tentativas erradas volta a poder entrar.
     prisma.loginAttempt.deleteMany({ where: { email: target.email } }),

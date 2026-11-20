@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { readSession } from "@/lib/session";
+import { isSessionStale } from "@/lib/session-validity";
 import type { Role } from "@/generated/prisma/enums";
 
 /**
@@ -21,12 +22,20 @@ export const getCurrentUser = cache(async () => {
       email: true,
       role: true,
       active: true,
+      passwordChangedAt: true,
       organizationId: true,
     },
   });
   // Conta desativada: a sessão (que é um token sem estado) deixa de valer na
   // hora, sem precisar esperar expirar.
-  return user?.active ? user : null;
+  if (!user?.active) return null;
+  // Senha trocada depois que esta sessão foi emitida: a sessão antiga cai.
+  if (isSessionStale(session.iat, user.passwordChangedAt)) return null;
+
+  // Não expõe o campo interno de validação de sessão ao resto da aplicação.
+  const { passwordChangedAt, ...current } = user;
+  void passwordChangedAt;
+  return current;
 });
 
 export type CurrentUser = NonNullable<

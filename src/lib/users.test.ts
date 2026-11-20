@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  changePasswordSchema,
   checkUserChange,
   createUserSchema,
   passwordSchema,
@@ -104,5 +105,33 @@ describe("checkUserChange", () => {
       checkUserChange({ actorId: "a1", target: inactive, next: { role: "AGENT", active: false }, activeAdminCount: 1 }),
       null,
     );
+  });
+});
+
+describe("changePasswordSchema", () => {
+  const ok = { current: "senha-atual-1", password: "senha-nova-22", confirm: "senha-nova-22" };
+
+  it("aceita a troca válida", () => {
+    assert.equal(changePasswordSchema.safeParse(ok).success, true);
+  });
+
+  it("exige a senha atual", () => {
+    assert.equal(changePasswordSchema.safeParse({ ...ok, current: "" }).success, false);
+  });
+
+  it("recusa confirmação diferente", () => {
+    const r = changePasswordSchema.safeParse({ ...ok, confirm: "outra-coisa-33" });
+    assert.equal(r.success, false);
+    if (!r.success) assert.match(r.error.issues[0].message, /confirmação/);
+  });
+
+  it("recusa nova senha igual à atual e fraca/longa demais", () => {
+    assert.equal(
+      changePasswordSchema.safeParse({ ...ok, password: ok.current, confirm: ok.current }).success,
+      false,
+    );
+    assert.equal(changePasswordSchema.safeParse({ ...ok, password: "curta", confirm: "curta" }).success, false);
+    const long = "a".repeat(73);
+    assert.equal(changePasswordSchema.safeParse({ ...ok, password: long, confirm: long }).success, false);
   });
 });

@@ -45,6 +45,24 @@ export const updateUserSchema = z.object({
   active: z.string().optional(),
 });
 
+export const profileSchema = z.object({ name: nameSchema });
+
+/** Troca da PRÓPRIA senha: exige a atual e a confirmação da nova. */
+export const changePasswordSchema = z
+  .object({
+    current: z.string(required).min(1, "Informe a sua senha atual."),
+    password: passwordSchema,
+    confirm: z.string(required),
+  })
+  .refine((v) => v.password === v.confirm, {
+    path: ["confirm"],
+    message: "A confirmação não é igual à nova senha.",
+  })
+  .refine((v) => v.password !== v.current, {
+    path: ["password"],
+    message: "A nova senha precisa ser diferente da atual.",
+  });
+
 export const resetPasswordSchema = z.object({
   userId: z.string(required).min(1),
   password: passwordSchema,

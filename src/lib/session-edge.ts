@@ -10,6 +10,8 @@ export type SessionPayload = {
   userId: string;
   role: Role;
   expiresAt: number;
+  /** Instante de emissão (segundos), preenchido pelo JWT (`setIssuedAt`). */
+  iat?: number;
 };
 
 function getKey() {

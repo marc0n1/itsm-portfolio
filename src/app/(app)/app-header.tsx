@@ -55,12 +55,16 @@ export async function AppHeader() {
 
         <div className="flex items-center gap-4 text-sm">
           <NotificationBell />
-          <span className="text-right leading-tight">
+          <Link
+            href="/account"
+            aria-label="Minha conta"
+            className="rounded-md px-2 py-1 text-right leading-tight hover:bg-zinc-100"
+          >
             <span className="block font-medium">{user.name}</span>
             <span className="block text-xs text-zinc-500">
               {ROLE_LABEL[user.role]}
             </span>
-          </span>
+          </Link>
           <form action={logout}>
             <button
               type="submit"
