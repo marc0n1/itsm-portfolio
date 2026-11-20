@@ -30,7 +30,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://itsm:itsm@localhost:5432/itsm
       - run: npm run lint
-      - run: npx tsc --noEmit
+      # `next typegen` gera os tipos globais (LayoutProps etc.) que não são versionados.
+      - run: npm run typecheck
       - run: npm run test:unit
 
   e2e:
