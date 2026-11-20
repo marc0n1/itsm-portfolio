@@ -135,6 +135,7 @@ export async function updateTicket(formData: FormData) {
         id: assigneeId,
         organizationId: user.organizationId,
         role: { in: ["AGENT", "ADMIN"] },
+        active: true,
       },
       select: { id: true, name: true },
     });

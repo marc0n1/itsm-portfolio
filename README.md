@@ -9,6 +9,7 @@ Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo
 ## Funcionalidades
 
 - **Autenticação e papéis:** Administrador, Agente e Solicitante, com sessão por JWT em cookie e rotas protegidas.
+- **Gestão de usuários (admin):** criar, editar nome e perfil, desativar/reativar e redefinir a senha. Desativar derruba a sessão aberta na hora e a pessoa deixa de aparecer como responsável, mas o histórico dela é preservado. O admin não altera o próprio perfil nem se desativa, e a organização nunca fica sem um administrador ativo. Senhas: mínimo de 8 caracteres e no máximo 72 bytes (limite real do bcrypt).
 - **Proteção contra força bruta:** depois de 5 senhas erradas em 15 minutos para a mesma conta e IP, o login é bloqueado (até com a senha certa) e libera sozinho. Há um segundo freio por IP (20 falhas) e a resposta é a mesma para contas que não existem. Os registros ficam no banco, então valem com várias instâncias.
 - **Chamados:** criação, listagem, detalhe, comentários públicos e notas internas (invisíveis ao solicitante). Cada solicitante só enxerga os próprios chamados.
 - **Catálogo de serviços:** o admin cria serviços com formulários dinâmicos; o servidor valida as respostas e serviços desativados não aceitam novos chamados.

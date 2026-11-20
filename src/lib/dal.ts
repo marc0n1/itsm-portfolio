@@ -13,16 +13,20 @@ export const getCurrentUser = cache(async () => {
   const session = await readSession();
   if (!session) return null;
 
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
+      active: true,
       organizationId: true,
     },
   });
+  // Conta desativada: a sessão (que é um token sem estado) deixa de valer na
+  // hora, sem precisar esperar expirar.
+  return user?.active ? user : null;
 });
 
 export type CurrentUser = NonNullable<
@@ -31,7 +35,9 @@ export type CurrentUser = NonNullable<
 
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  // Passou pelo proxy (cookie com cara de válido) mas o usuário não vale mais:
+  // a rota apaga o cookie antes de ir ao login, evitando loop de redirecionamento.
+  if (!user) redirect("/login/expired");
   return user;
 }
 

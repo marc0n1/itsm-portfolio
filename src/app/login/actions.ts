@@ -65,7 +65,8 @@ export async function login(
   const user = await prisma.user.findUnique({ where: { email } });
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
 
-  if (!user || !ok) {
+  // Conta desativada falha igual a senha errada (não revela que a conta existe).
+  if (!user || !user.active || !ok) {
     await prisma.loginAttempt.create({ data: { email, ip } });
     // Faxina oportunista: registros fora da janela não servem mais.
     await prisma.loginAttempt.deleteMany({

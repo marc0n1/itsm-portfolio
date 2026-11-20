@@ -100,6 +100,9 @@ model User {
   email          String   @unique
   passwordHash   String
   role           Role     @default(REQUESTER)
+  /// Desativado = não entra mais (sessões abertas caem na próxima requisição),
+  /// mas o histórico (chamados, comentários, eventos) continua apontando para ele.
+  active         Boolean  @default(true)
   createdAt      DateTime @default(now())
 
   organization  Organization   @relation(fields: [organizationId], references: [id])

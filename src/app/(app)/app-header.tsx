@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/dal";
 import {
   ROLE_LABEL,
   canManageServices,
+  canManageUsers,
   canWorkTickets,
 } from "@/lib/permissions";
 import { logout } from "../login/actions";
@@ -38,6 +39,11 @@ export async function AppHeader() {
               className="text-zinc-600 hover:text-zinc-900"
             >
               Serviços
+            </Link>
+          )}
+          {canManageUsers(user.role) && (
+            <Link href="/admin/users" className="text-zinc-600 hover:text-zinc-900">
+              Usuários
             </Link>
           )}
           {canManageServices(user.role) && (

@@ -105,6 +105,7 @@ export async function listAssignees(user: CurrentUser) {
     where: {
       organizationId: user.organizationId,
       role: { in: ["AGENT", "ADMIN"] },
+      active: true,
     },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
