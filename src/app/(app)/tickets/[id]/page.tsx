@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/dal";
 import { ROLE_LABEL, canWorkTickets } from "@/lib/permissions";
+import { listResponses } from "@/lib/response-queries";
+import { firstName } from "@/lib/responses";
 import { getTicket, listAssignees, listTicketEvents } from "@/lib/ticket-queries";
 import { displayAnswer, parseAnswers } from "@/lib/services";
 import { computeSla, formatDuration, type SlaClock } from "@/lib/sla";
@@ -46,6 +48,7 @@ async function TicketContent({ params }: { params: Params }) {
   const assignees = staff ? await listAssignees(user) : [];
   const answers = parseAnswers(ticket.formData);
   const events = await listTicketEvents(user, ticket.id);
+  const responses = await listResponses(user);
   const attachmentsOf = (commentId: string | null) =>
     ticket.attachments.filter((a) => a.commentId === commentId);
   // SLA é indicador interno: só a equipe de atendimento o vê.
@@ -143,7 +146,16 @@ async function TicketContent({ params }: { params: Params }) {
               </article>
             ))}
 
-            <CommentForm ticketId={ticket.id} staff={staff} />
+            <CommentForm
+              ticketId={ticket.id}
+              staff={staff}
+              responses={responses}
+              vars={{
+                solicitante: firstName(ticket.requester.name),
+                numero: String(ticket.number),
+                agente: user.name,
+              }}
+            />
           </section>
         </div>
 

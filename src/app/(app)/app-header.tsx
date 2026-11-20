@@ -33,6 +33,11 @@ export async function AppHeader() {
               Quadro
             </Link>
           )}
+          {canWorkTickets(user.role) && (
+            <Link href="/responses" className="text-zinc-600 hover:text-zinc-900">
+              Respostas
+            </Link>
+          )}
           {canManageServices(user.role) && (
             <Link
               href="/admin/services"

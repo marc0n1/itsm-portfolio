@@ -38,6 +38,29 @@ async function main() {
 
   console.log(`Seed ok: ${users.length} usuários na organização "${org.name}".`);
 
+  // Respostas prontas de exemplo. `update: {}` preserva o que a equipe editar.
+  const responses = [
+    {
+      title: "Saudação",
+      body: "Olá, {{solicitante}}! Recebemos o seu chamado #{{numero}} e já estamos cuidando dele.\n\nAtenciosamente,\n{{agente}}",
+    },
+    {
+      title: "Pedido de mais informações",
+      body: "Olá, {{solicitante}}. Para avançarmos no chamado #{{numero}}, poderia nos enviar mais detalhes (o que aparece na tela, desde quando acontece e se algo mudou recentemente)?\n\n{{agente}}",
+    },
+    {
+      title: "Chamado resolvido",
+      body: "Olá, {{solicitante}}. Concluímos o atendimento do chamado #{{numero}}. Se o problema voltar ou algo ainda não estiver certo, é só responder aqui que reabrimos.\n\n{{agente}}",
+    },
+  ];
+  for (const r of responses) {
+    await prisma.cannedResponse.upsert({
+      where: { organizationId_title: { organizationId: org.id, title: r.title } },
+      update: {},
+      create: { ...r, organizationId: org.id },
+    });
+  }
+
   // Catálogo de serviços. `update: {}` preserva o que o admin editar depois.
   const catalog = [
     {
