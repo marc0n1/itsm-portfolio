@@ -1,0 +1,126 @@
+"use server";
+
+import { notFound, redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { requireRole, requireUser } from "@/lib/dal";
+import { canWorkTickets } from "@/lib/permissions";
+import { ticketScope } from "@/lib/ticket-queries";
+import {
+  commentSchema,
+  createTicketSchema,
+  updateTicketSchema,
+  type FormState,
+} from "@/lib/tickets";
+
+export async function createTicket(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser();
+
+  const parsed = createTicketSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    priority: formData.get("priority"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  if (user.role === "REQUESTER" && parsed.data.priority === "CRITICAL") {
+    return {
+      error: "A prioridade crítica só pode ser definida pelo atendimento.",
+    };
+  }
+
+  const ticket = await prisma.ticket.create({
+    data: {
+      ...parsed.data,
+      organizationId: user.organizationId,
+      requesterId: user.id,
+    },
+    select: { id: true },
+  });
+
+  redirect(`/tickets/${ticket.id}`);
+}
+
+/** Somente agentes e admins alteram status, prioridade e responsável. */
+export async function updateTicket(formData: FormData) {
+  const user = await requireRole("ADMIN", "AGENT");
+
+  const parsed = updateTicketSchema.safeParse({
+    ticketId: formData.get("ticketId"),
+    status: formData.get("status"),
+    priority: formData.get("priority"),
+    assigneeId: formData.get("assigneeId") ?? undefined,
+  });
+  if (!parsed.success) return;
+
+  const { ticketId, status, priority } = parsed.data;
+  const assigneeId = parsed.data.assigneeId || null;
+
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId, ...ticketScope(user) },
+    select: { id: true, resolvedAt: true },
+  });
+  if (!ticket) notFound();
+
+  if (assigneeId) {
+    // O responsável precisa ser da equipe de atendimento da MESMA organização.
+    const assignee = await prisma.user.findFirst({
+      where: {
+        id: assigneeId,
+        organizationId: user.organizationId,
+        role: { in: ["AGENT", "ADMIN"] },
+      },
+      select: { id: true },
+    });
+    if (!assignee) return;
+  }
+
+  const isDone = status === "RESOLVED" || status === "CLOSED";
+
+  await prisma.ticket.update({
+    where: { id: ticket.id },
+    data: {
+      status,
+      priority,
+      assigneeId,
+      resolvedAt: isDone ? (ticket.resolvedAt ?? new Date()) : null,
+    },
+  });
+
+  revalidatePath(`/tickets/${ticket.id}`);
+  revalidatePath("/tickets");
+  revalidatePath("/dashboard");
+}
+
+export async function addComment(formData: FormData) {
+  const user = await requireUser();
+
+  const parsed = commentSchema.safeParse({
+    ticketId: formData.get("ticketId"),
+    body: formData.get("body"),
+    internal: formData.get("internal") ?? undefined,
+  });
+  if (!parsed.success) return;
+
+  // Mesmo escopo da leitura: solicitante só comenta nos próprios chamados.
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: parsed.data.ticketId, ...ticketScope(user) },
+    select: { id: true },
+  });
+  if (!ticket) notFound();
+
+  await prisma.comment.create({
+    data: {
+      ticketId: ticket.id,
+      authorId: user.id,
+      body: parsed.data.body,
+      // Nota interna só existe para a equipe; solicitante nunca a cria.
+      internal: canWorkTickets(user.role) && parsed.data.internal === "on",
+    },
+  });
+
+  revalidatePath(`/tickets/${ticket.id}`);
+}

@@ -6,7 +6,9 @@ import { COOKIE_NAME, decrypt } from "@/lib/session-edge";
 // src/lib/dal.ts e é chamada dentro das páginas e ações.
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isProtected = pathname.startsWith("/dashboard");
+  const isProtected = ["/dashboard", "/tickets"].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 
   const session = await decrypt(req.cookies.get(COOKIE_NAME)?.value);
 
