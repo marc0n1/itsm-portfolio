@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ITSM Portfolio
 
-## Getting Started
+Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo de serviços, quadro Kanban, SLA e dashboard de indicadores.
 
-First, run the development server:
+**Stack:** Next.js (App Router, Server Actions) · TypeScript · Prisma + PostgreSQL · Playwright · Node test runner
+
+## Funcionalidades
+
+- **Autenticação e papéis:** Administrador, Agente e Solicitante, com sessão por JWT em cookie e rotas protegidas.
+- **Chamados:** criação, listagem, detalhe, comentários públicos e notas internas (invisíveis ao solicitante). Cada solicitante só enxerga os próprios chamados.
+- **Catálogo de serviços:** o admin cria serviços com formulários dinâmicos; o servidor valida as respostas e serviços desativados não aceitam novos chamados.
+- **Quadro Kanban:** arrastar e soltar entre colunas de status (com seletor "Mover para" como alternativa), ordenado por urgência, com filtro "Atribuídos a mim". Visível só para a equipe.
+- **SLA:** metas de primeira resposta e resolução configuráveis pelo admin. O relógio pausa em "Aguardando" e retoma ao sair, e só o comentário público da equipe conta como primeira resposta.
+- **Dashboard:** indicadores de SLA (conformidade, em risco, estourados, tempos médios) e gráfico diário, restritos à equipe.
+- **Tema:** suporte a modo escuro com texto legível.
+
+## Como rodar
+
+Pré-requisitos: Node.js, Docker.
 
 ```bash
+# 1. Dependências
+npm install
+
+# 2. Variáveis de ambiente
+cp .env.example .env
+# edite SESSION_SECRET (o comando para gerar está no próprio .env.example)
+
+# 3. Banco de dados
+docker compose up -d
+npx prisma migrate deploy
+npx prisma db seed
+
+# 4. Aplicação
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Usuários de demonstração
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Senha de todos: `demo1234`
 
-## Learn More
+| Perfil      | E-mail                |
+| ----------- | --------------------- |
+| Admin       | admin@demo.com        |
+| Agente      | agente@demo.com       |
+| Solicitante | solicitante@demo.com  |
 
-To learn more about Next.js, take a look at the following resources:
+## Testes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run test:unit   # regras de SLA e transições de status
+npm run test:e2e    # fluxos completos no navegador (Playwright)
+npm run lint
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Os testes e2e usam o Microsoft Edge instalado e compartilham o banco de desenvolvimento, por isso rodam em série. Rode o seed antes para garantir os usuários de demonstração.
 
-## Deploy on Vercel
+## Estrutura
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/app/(app)/   páginas autenticadas (chamados, quadro, catálogo, dashboard, admin)
+src/lib/         regras de negócio e consultas (SLA, status, dashboard)
+prisma/          schema, migrations e seed
+e2e/             testes de ponta a ponta
+```
