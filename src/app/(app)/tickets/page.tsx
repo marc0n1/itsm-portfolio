@@ -13,6 +13,24 @@ import {
   ticketFiltersSchema,
 } from "@/lib/tickets";
 import { PriorityBadge, StatusBadge } from "../badges";
+import { SlaBadge } from "../sla-badge";
+import { computeSla, worstClockOf, type SlaPolicies, type SlaTicket } from "@/lib/sla";
+import { getSlaPolicies } from "@/lib/sla-queries";
+
+function SlaCell({
+  ticket,
+  policies,
+  now,
+}: {
+  ticket: SlaTicket;
+  policies: SlaPolicies;
+  now: Date;
+}) {
+  const { kind, clock } = worstClockOf(
+    computeSla(ticket, policies[ticket.priority], now),
+  );
+  return <SlaBadge clock={clock} kind={kind} />;
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -43,6 +61,9 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
 
   const tickets = await listTickets(user, filters);
   const staff = canWorkTickets(user.role);
+  // SLA é indicador interno: só a equipe de atendimento o vê.
+  const policies = staff ? await getSlaPolicies(user.organizationId) : null;
+  const now = new Date();
   const hasFilters = Boolean(
     filters.status || filters.priority || filters.q || filters.mine,
   );
@@ -127,6 +148,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                 <th className="px-4 py-2.5">Título</th>
                 <th className="px-4 py-2.5">Status</th>
                 <th className="px-4 py-2.5">Prioridade</th>
+                {staff && <th className="px-4 py-2.5">SLA</th>}
                 {staff && <th className="px-4 py-2.5">Solicitante</th>}
                 <th className="px-4 py-2.5">Responsável</th>
                 <th className="px-4 py-2.5">Aberto em</th>
@@ -150,6 +172,11 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                   <td className="px-4 py-3">
                     <PriorityBadge priority={t.priority} />
                   </td>
+                  {staff && policies && (
+                    <td className="px-4 py-3">
+                      <SlaCell ticket={t} policies={policies} now={now} />
+                    </td>
+                  )}
                   {staff && <td className="px-4 py-3">{t.requester.name}</td>}
                   <td className="px-4 py-3 text-zinc-600">
                     {t.assignee?.name ?? "—"}

@@ -5,6 +5,9 @@ import { requireUser } from "@/lib/dal";
 import { ROLE_LABEL, canWorkTickets } from "@/lib/permissions";
 import { getTicket, listAssignees } from "@/lib/ticket-queries";
 import { displayAnswer, parseAnswers } from "@/lib/services";
+import { computeSla, formatDuration, type SlaClock } from "@/lib/sla";
+import { getSlaPolicies } from "@/lib/sla-queries";
+import { SlaBadge } from "../../sla-badge";
 import {
   PRIORITIES,
   PRIORITY_LABEL,
@@ -39,6 +42,14 @@ async function TicketContent({ params }: { params: Params }) {
   const staff = canWorkTickets(user.role);
   const assignees = staff ? await listAssignees(user) : [];
   const answers = parseAnswers(ticket.formData);
+  // SLA é indicador interno: só a equipe de atendimento o vê.
+  const sla = staff
+    ? computeSla(
+        ticket,
+        (await getSlaPolicies(user.organizationId))[ticket.priority],
+        new Date(),
+      )
+    : null;
 
   return (
     <div className="space-y-5">
@@ -162,6 +173,33 @@ async function TicketContent({ params }: { params: Params }) {
             />
           </section>
 
+          {sla && (
+            <section
+              data-testid="sla-panel"
+              className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm"
+            >
+              <h2 className="font-medium">SLA</h2>
+              <SlaRow
+                title="Primeira resposta"
+                clock={sla.response}
+                note={
+                  ticket.firstResponseAt
+                    ? `Respondido em ${formatDate(ticket.firstResponseAt)}`
+                    : undefined
+                }
+              />
+              <SlaRow
+                title="Resolução"
+                clock={sla.resolution}
+                note={
+                  ticket.slaPausedSeconds > 0
+                    ? `Tempo pausado: ${formatDuration(ticket.slaPausedSeconds * 1000)}`
+                    : undefined
+                }
+              />
+            </section>
+          )}
+
           {staff && (
             <form
               action={updateTicket}
@@ -222,6 +260,27 @@ async function TicketContent({ params }: { params: Params }) {
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+function SlaRow({
+  title,
+  clock,
+  note,
+}: {
+  title: string;
+  clock: SlaClock;
+  note?: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-zinc-500">{title}</p>
+      <SlaBadge clock={clock} />
+      <p className="text-xs text-zinc-500">
+        {clock.state === "paused" ? "Relógio parado" : `Prazo: ${formatDate(clock.dueAt)}`}
+        {note && <> · {note}</>}
+      </p>
     </div>
   );
 }

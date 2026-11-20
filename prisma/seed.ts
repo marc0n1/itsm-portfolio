@@ -210,7 +210,7 @@ async function main() {
       priority: "HIGH",
       assigneeId: agent.id,
       createdAt: hoursAgo(120),
-      resolvedAt: hoursAgo(96),
+      resolvedAt: hoursAgo(114), // 6h depois: dentro do SLA de 8h (prioridade alta)
       comments: [
         {
           authorId: agent.id,
@@ -243,10 +243,24 @@ async function main() {
 
   for (const s of samples) {
     const { comments, ...ticket } = s;
+
+    // SLA: 1ª resposta = primeiro comentário público da equipe; chamado em
+    // "Aguardando" já começa com o relógio de resolução pausado.
+    const firstReply = comments.findIndex(
+      (c) => !("internal" in c && c.internal) && c.authorId !== requester.id,
+    );
+    const firstResponseAt =
+      firstReply >= 0
+        ? new Date(s.createdAt.getTime() + (firstReply + 1) * 3_600_000)
+        : undefined;
+    const slaPausedAt = s.status === "WAITING" ? hoursAgo(10) : undefined;
+
     await prisma.ticket.create({
       data: {
         organizationId: org.id,
         requesterId: requester.id,
+        firstResponseAt,
+        slaPausedAt,
         ...ticket,
         comments: {
           create: comments.map((c, i) => ({

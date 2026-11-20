@@ -39,6 +39,11 @@ export async function AppHeader() {
               Serviços
             </Link>
           )}
+          {canManageServices(user.role) && (
+            <Link href="/admin/sla" className="text-zinc-600 hover:text-zinc-900">
+              SLA
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-4 text-sm">

@@ -7,7 +7,7 @@ import { requireRole, requireUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
 import { z } from "zod";
 import { TicketStatus } from "@/generated/prisma/enums";
-import { resolvedAtFor } from "@/lib/ticket-status";
+import { statusTransition } from "@/lib/ticket-status";
 import { ticketScope } from "@/lib/ticket-queries";
 import { buildAnswers, parseFields, type Answer } from "@/lib/services";
 import {
@@ -95,7 +95,12 @@ export async function updateTicket(formData: FormData) {
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, ...ticketScope(user) },
-    select: { id: true, resolvedAt: true },
+    select: {
+      id: true,
+      resolvedAt: true,
+      slaPausedAt: true,
+      slaPausedSeconds: true,
+    },
   });
   if (!ticket) notFound();
 
@@ -115,10 +120,9 @@ export async function updateTicket(formData: FormData) {
   await prisma.ticket.update({
     where: { id: ticket.id },
     data: {
-      status,
       priority,
       assigneeId,
-      resolvedAt: resolvedAtFor(status, ticket.resolvedAt),
+      ...statusTransition(ticket, status),
     },
   });
 
@@ -147,17 +151,20 @@ export async function moveTicket(
   // Mesmo escopo das consultas: chamado de outra organização não é encontrado.
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, ...ticketScope(user) },
-    select: { id: true, status: true, resolvedAt: true },
+    select: {
+      id: true,
+      status: true,
+      resolvedAt: true,
+      slaPausedAt: true,
+      slaPausedSeconds: true,
+    },
   });
   if (!ticket) return { ok: false, error: "Chamado não encontrado." };
   if (ticket.status === parsedStatus.data) return { ok: true };
 
   await prisma.ticket.update({
     where: { id: ticket.id },
-    data: {
-      status: parsedStatus.data,
-      resolvedAt: resolvedAtFor(parsedStatus.data, ticket.resolvedAt),
-    },
+    data: statusTransition(ticket, parsedStatus.data),
   });
 
   revalidateTicketViews(ticket.id);
@@ -177,19 +184,30 @@ export async function addComment(formData: FormData) {
   // Mesmo escopo da leitura: solicitante só comenta nos próprios chamados.
   const ticket = await prisma.ticket.findFirst({
     where: { id: parsed.data.ticketId, ...ticketScope(user) },
-    select: { id: true },
+    select: { id: true, firstResponseAt: true },
   });
   if (!ticket) notFound();
+
+  const staff = canWorkTickets(user.role);
+  // Nota interna só existe para a equipe; solicitante nunca a cria.
+  const internal = staff && parsed.data.internal === "on";
 
   await prisma.comment.create({
     data: {
       ticketId: ticket.id,
       authorId: user.id,
       body: parsed.data.body,
-      // Nota interna só existe para a equipe; solicitante nunca a cria.
-      internal: canWorkTickets(user.role) && parsed.data.internal === "on",
+      internal,
     },
   });
+
+  // SLA: a primeira resposta PÚBLICA da equipe encerra o relógio de resposta.
+  if (staff && !internal && !ticket.firstResponseAt) {
+    await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { firstResponseAt: new Date() },
+    });
+  }
 
   revalidatePath(`/tickets/${ticket.id}`);
 }

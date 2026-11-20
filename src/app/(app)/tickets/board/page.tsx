@@ -3,6 +3,13 @@ import Link from "next/link";
 import { requireRole } from "@/lib/dal";
 import { listTickets } from "@/lib/ticket-queries";
 import { PRIORITY_RANK } from "@/lib/ticket-status";
+import {
+  CLOCK_KIND_LABEL,
+  clockLabel,
+  computeSla,
+  worstClockOf,
+} from "@/lib/sla";
+import { getSlaPolicies } from "@/lib/sla-queries";
 import { ticketFiltersSchema } from "@/lib/tickets";
 import { Board, type BoardTicket } from "./board";
 
@@ -24,6 +31,8 @@ async function BoardContent({ searchParams }: { searchParams: SearchParams }) {
 
   const filters = ticketFiltersSchema.parse({ mine: mine ? "1" : undefined });
   const rows = await listTickets(user, filters);
+  const policies = await getSlaPolicies(user.organizationId);
+  const now = new Date();
 
   const tickets: BoardTicket[] = rows
     // Mais urgentes primeiro; dentro da mesma prioridade, os mais antigos.
@@ -32,15 +41,25 @@ async function BoardContent({ searchParams }: { searchParams: SearchParams }) {
         PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
         a.createdAt.getTime() - b.createdAt.getTime(),
     )
-    .map((t) => ({
-      id: t.id,
-      number: t.number,
-      title: t.title,
-      status: t.status,
-      priority: t.priority,
-      assignee: t.assignee?.name ?? null,
-      service: t.service?.name ?? null,
-    }));
+    .map((t) => {
+      const { kind, clock } = worstClockOf(
+        computeSla(t, policies[t.priority], now),
+      );
+      return {
+        id: t.id,
+        number: t.number,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        assignee: t.assignee?.name ?? null,
+        service: t.service?.name ?? null,
+        // Texto já formatado: o card (componente de cliente) só exibe.
+        sla: {
+          state: clock.state,
+          text: `${CLOCK_KIND_LABEL[kind]}: ${clockLabel(clock)}`,
+        },
+      };
+    });
 
   const tab =
     "rounded-md px-3 py-1.5 text-sm border border-zinc-300 hover:bg-zinc-100";

@@ -37,9 +37,26 @@ model Organization {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  users    User[]
-  tickets  Ticket[]
-  services Service[]
+  users       User[]
+  tickets     Ticket[]
+  services    Service[]
+  slaPolicies SlaPolicy[]
+}
+
+/// Metas de SLA por prioridade. Os prazos de cada chamado NÃO são gravados:
+/// são calculados na leitura (src/lib/sla.ts), então mudar a política ou a
+/// prioridade de um chamado recalcula tudo sem migrar dados.
+model SlaPolicy {
+  id                String   @id @default(cuid())
+  organizationId    String
+  priority          Priority
+  responseMinutes   Int
+  resolutionMinutes Int
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, priority])
 }
 
 /// Tipo de serviço do catálogo. `fields` guarda a definição do formulário
@@ -80,23 +97,28 @@ model User {
 }
 
 model Ticket {
-  id             String       @id @default(cuid())
-  number         Int          @default(autoincrement())
-  organizationId String
-  title          String
-  description    String
-  status         TicketStatus @default(OPEN)
-  priority       Priority     @default(MEDIUM)
-  requesterId    String
-  assigneeId     String?
-  dueAt          DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  resolvedAt     DateTime?
-  serviceId      String?
+  id               String       @id @default(cuid())
+  number           Int          @default(autoincrement())
+  organizationId   String
+  title            String
+  description      String
+  status           TicketStatus @default(OPEN)
+  priority         Priority     @default(MEDIUM)
+  requesterId      String
+  assigneeId       String?
+  /// Primeira resposta pública da equipe (nota interna não conta).
+  firstResponseAt  DateTime?
+  /// Preenchido enquanto o chamado está em "Aguardando" (relógio de SLA parado).
+  slaPausedAt      DateTime?
+  /// Total de segundos já pausados; empurra os prazos do SLA.
+  slaPausedSeconds Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  resolvedAt       DateTime?
+  serviceId        String?
   /// Retrato das respostas do formulário do serviço: [{key,label,type,value}].
   /// Guardado com o rótulo para o chamado continuar legível se o serviço mudar.
-  formData       Json?
+  formData         Json?
 
   organization Organization @relation(fields: [organizationId], references: [id])
   requester    User         @relation("TicketRequester", fields: [requesterId], references: [id])

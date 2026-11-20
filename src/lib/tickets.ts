@@ -86,7 +86,7 @@ export type TicketFilters = z.infer<typeof ticketFiltersSchema>;
  * digitados (`values`) para os campos serem repreenchidos.
  */
 export type FormState =
-  | { error?: string; values?: Record<string, string> }
+  | { error?: string; values?: Record<string, string>; saved?: boolean }
   | undefined;
 
 /** Valores de texto do formulário (ignora campos internos do React). */

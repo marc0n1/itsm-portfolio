@@ -20,6 +20,8 @@ import {
 import type { Priority, TicketStatus } from "@/generated/prisma/enums";
 import { STATUSES, STATUS_LABEL, STATUS_STYLE } from "@/lib/tickets";
 import { PriorityBadge } from "../../badges";
+import { CLOCK_STYLE } from "../../sla-badge";
+import type { ClockState } from "@/lib/sla";
 import { moveTicket } from "../actions";
 
 export type BoardTicket = {
@@ -30,6 +32,7 @@ export type BoardTicket = {
   priority: Priority;
   assignee: string | null;
   service: string | null;
+  sla: { state: ClockState; text: string };
 };
 
 /**
@@ -223,6 +226,13 @@ function CardView({
           {ticket.assignee ?? "Sem responsável"}
         </span>
       </div>
+
+      <p
+        data-sla-state={ticket.sla.state}
+        className={`rounded px-2 py-1 text-xs font-medium ${CLOCK_STYLE[ticket.sla.state]}`}
+      >
+        {ticket.sla.text}
+      </p>
 
       {onMove && (
         // Alternativa ao arrastar: funciona no teclado e no celular.
