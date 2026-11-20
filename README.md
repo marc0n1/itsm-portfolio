@@ -51,6 +51,15 @@ Senha de todos: `demo1234`
 
 Os anexos ficam em `storage/uploads` (ignorado pelo git); use `UPLOAD_DIR` para trocar o local.
 
+Apagar um chamado remove os anexos do banco, mas não os arquivos do disco. Para limpar as sobras:
+
+```bash
+npm run storage:cleanup            # simulação: só lista os órfãos
+npm run storage:cleanup -- --apply # apaga de verdade
+```
+
+Por segurança, arquivos com menos de 1 hora são ignorados (podem ser um upload em andamento; ajuste com `--grace-minutes=N`).
+
 ## Testes
 
 ```bash
