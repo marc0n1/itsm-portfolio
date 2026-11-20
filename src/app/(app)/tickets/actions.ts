@@ -9,12 +9,14 @@ import { z } from "zod";
 import { TicketStatus } from "@/generated/prisma/enums";
 import { statusTransition } from "@/lib/ticket-status";
 import { diffTicket } from "@/lib/ticket-events";
+import { planAssignment, planComment, planStatusChange } from "@/lib/notifications";
 import { filesFrom, removeFiles, storeFiles } from "@/lib/attachment-storage";
 import { ticketScope } from "@/lib/ticket-queries";
 import { buildAnswers, parseFields, type Answer } from "@/lib/services";
 import {
   commentSchema,
   createTicketSchema,
+  STATUS_LABEL,
   formValues,
   updateTicketSchema,
   type FormState,
@@ -112,6 +114,9 @@ export async function updateTicket(formData: FormData) {
     where: { id: ticketId, ...ticketScope(user) },
     select: {
       id: true,
+      number: true,
+      title: true,
+      requesterId: true,
       status: true,
       priority: true,
       resolvedAt: true,
@@ -146,6 +151,25 @@ export async function updateTicket(formData: FormData) {
     { status, priority, assignee: assigneeName },
   );
 
+  const notifications = [
+    ...(changes.some((c) => c.type === "STATUS")
+      ? planStatusChange({
+          actorId: user.id,
+          requesterId: ticket.requesterId,
+          number: ticket.number,
+          toLabel: STATUS_LABEL[status],
+        })
+      : []),
+    ...(changes.some((c) => c.type === "ASSIGNEE")
+      ? planAssignment({
+          actorId: user.id,
+          newAssigneeId: assigneeId,
+          number: ticket.number,
+          title: ticket.title,
+        })
+      : []),
+  ];
+
   await prisma.ticket.update({
     where: { id: ticket.id },
     data: {
@@ -155,6 +179,7 @@ export async function updateTicket(formData: FormData) {
       events: {
         create: changes.map((c) => ({ ...c, actorId: user.id })),
       },
+      notifications: { create: notifications },
     },
   });
 
@@ -185,6 +210,8 @@ export async function moveTicket(
     where: { id: ticketId, ...ticketScope(user) },
     select: {
       id: true,
+      number: true,
+      requesterId: true,
       status: true,
       resolvedAt: true,
       slaPausedAt: true,
@@ -205,6 +232,14 @@ export async function moveTicket(
           to: parsedStatus.data,
           actorId: user.id,
         },
+      },
+      notifications: {
+        create: planStatusChange({
+          actorId: user.id,
+          requesterId: ticket.requesterId,
+          number: ticket.number,
+          toLabel: STATUS_LABEL[parsedStatus.data],
+        }),
       },
     },
   });
@@ -229,7 +264,13 @@ export async function addComment(
   // Mesmo escopo da leitura: solicitante só comenta nos próprios chamados.
   const ticket = await prisma.ticket.findFirst({
     where: { id: parsed.data.ticketId, ...ticketScope(user) },
-    select: { id: true, firstResponseAt: true },
+    select: {
+      id: true,
+      number: true,
+      requesterId: true,
+      assigneeId: true,
+      firstResponseAt: true,
+    },
   });
   if (!ticket) notFound();
 
@@ -242,22 +283,37 @@ export async function addComment(
     return { error: upload.error, values: { body: parsed.data.body } };
   }
 
+  const notifications = planComment({
+    actorId: user.id,
+    authorName: user.name,
+    requesterId: ticket.requesterId,
+    assigneeId: ticket.assigneeId,
+    internal,
+    number: ticket.number,
+  });
+
   try {
-    await prisma.comment.create({
-      data: {
-        ticketId: ticket.id,
-        authorId: user.id,
-        body: parsed.data.body,
-        internal,
-        attachments: {
-          create: upload.stored.map((f) => ({
-            ...f,
-            ticketId: ticket.id,
-            uploaderId: user.id,
-          })),
+    // Comentário e avisos juntos: ou grava tudo, ou nada.
+    await prisma.$transaction([
+      prisma.comment.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: user.id,
+          body: parsed.data.body,
+          internal,
+          attachments: {
+            create: upload.stored.map((f) => ({
+              ...f,
+              ticketId: ticket.id,
+              uploaderId: user.id,
+            })),
+          },
         },
-      },
-    });
+      }),
+      prisma.notification.createMany({
+        data: notifications.map((n) => ({ ...n, ticketId: ticket.id })),
+      }),
+    ]);
   } catch (err) {
     await removeFiles(upload.stored);
     throw err;

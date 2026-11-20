@@ -6,6 +6,7 @@ import {
   canWorkTickets,
 } from "@/lib/permissions";
 import { logout } from "../login/actions";
+import { NotificationBell } from "./notifications/notification-bell";
 
 export async function AppHeader() {
   const user = await requireUser();
@@ -47,6 +48,7 @@ export async function AppHeader() {
         </nav>
 
         <div className="flex items-center gap-4 text-sm">
+          <NotificationBell />
           <span className="text-right leading-tight">
             <span className="block font-medium">{user.name}</span>
             <span className="block text-xs text-zinc-500">

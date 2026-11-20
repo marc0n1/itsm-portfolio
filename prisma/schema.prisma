@@ -31,6 +31,12 @@ enum Priority {
   CRITICAL
 }
 
+enum NotificationType {
+  ASSIGNED
+  COMMENT
+  STATUS
+}
+
 enum TicketEventType {
   CREATED
   STATUS
@@ -96,12 +102,13 @@ model User {
   role           Role     @default(REQUESTER)
   createdAt      DateTime @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  requested    Ticket[]     @relation("TicketRequester")
-  assigned     Ticket[]     @relation("TicketAssignee")
-  comments     Comment[]
-  events       TicketEvent[]
-  uploads      Attachment[]
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  requested     Ticket[]       @relation("TicketRequester")
+  assigned      Ticket[]       @relation("TicketAssignee")
+  comments      Comment[]
+  events        TicketEvent[]
+  notifications Notification[]
+  uploads       Attachment[]
 
   @@index([organizationId])
 }
@@ -130,13 +137,14 @@ model Ticket {
   /// Guardado com o rótulo para o chamado continuar legível se o serviço mudar.
   formData         Json?
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  requester    User         @relation("TicketRequester", fields: [requesterId], references: [id])
-  assignee     User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  comments     Comment[]
-  events       TicketEvent[]
-  attachments  Attachment[]
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  requester     User           @relation("TicketRequester", fields: [requesterId], references: [id])
+  assignee      User?          @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  service       Service?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  comments      Comment[]
+  events        TicketEvent[]
+  notifications Notification[]
+  attachments   Attachment[]
 
   @@index([organizationId, status])
   @@index([assigneeId])
@@ -196,4 +204,21 @@ model Attachment {
 
   @@index([ticketId])
   @@index([commentId])
+}
+
+/// Aviso dentro do app (sino). `message` é um retrato do texto no momento do
+/// evento. Cada usuário só enxerga as suas; `readAt` nulo = não lida.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  ticketId  String
+  type      NotificationType
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
 }
