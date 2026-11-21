@@ -38,6 +38,11 @@ export async function AppHeader() {
               Respostas
             </Link>
           )}
+          {canWorkTickets(user.role) && (
+            <Link href="/reports" className="text-zinc-600 hover:text-zinc-900">
+              Relatórios
+            </Link>
+          )}
           {canManageServices(user.role) && (
             <Link
               href="/admin/services"

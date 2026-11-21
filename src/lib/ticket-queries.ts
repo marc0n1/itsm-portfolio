@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type { CurrentUser } from "@/lib/dal";
 import { canWorkTickets } from "@/lib/permissions";
-import type { TicketFilters } from "@/lib/tickets";
+import { ticketNumberFromQuery, type TicketFilters } from "@/lib/tickets";
 import { paginate } from "@/lib/pagination";
 
 /**
@@ -30,9 +30,7 @@ function ticketsWhere(
   if (filters.mine && canWorkTickets(user.role)) where.assigneeId = user.id;
 
   if (filters.q) {
-    const asNumber = /^#?\d+$/.test(filters.q)
-      ? Number(filters.q.replace("#", ""))
-      : null;
+    const asNumber = ticketNumberFromQuery(filters.q);
     where.OR = [
       { title: { contains: filters.q, mode: "insensitive" } },
       ...(asNumber !== null ? [{ number: asNumber }] : []),

@@ -70,6 +70,20 @@ export const commentSchema = z.object({
   internal: z.string().optional(),
 });
 
+/** A coluna `number` é um inteiro de 32 bits com sinal no Postgres. */
+const MAX_TICKET_NUMBER = 2_147_483_647;
+
+/**
+ * Se a busca for um número de chamado ("42" ou "#42"), devolve o número.
+ * Número grande demais para a coluna (ex.: "99999999999") NÃO é número de
+ * chamado: devolvê-lo ao banco estouraria o inteiro e daria erro 500.
+ */
+export function ticketNumberFromQuery(q: string): number | null {
+  if (!/^#?\d+$/.test(q)) return null;
+  const n = Number(q.replace("#", ""));
+  return n >= 1 && n <= MAX_TICKET_NUMBER ? n : null;
+}
+
 /** Filtros da listagem, vindos da URL. Valores inválidos são ignorados. */
 export const ticketFiltersSchema = z.object({
   status: z.enum(TicketStatus).optional().catch(undefined),
