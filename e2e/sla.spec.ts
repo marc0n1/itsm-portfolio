@@ -301,7 +301,10 @@ test("metas de SLA: só admin edita; valida; e recalcula os chamados", async ({
 test("dashboard: indicadores e gráfico só para a equipe", async ({ page }) => {
   await login(page, "agente@demo.com");
 
-  const kpis = page.getByTestId("kpi");
+  // Só a seção de SLA (a de satisfação, que tem os seus próprios cartões, é testada no csat.spec).
+  const kpis = page
+    .getByRole("region", { name: "Indicadores de SLA" })
+    .getByTestId("kpi");
   await expect(kpis).toHaveCount(6);
   // Há chamados estourados (criados no beforeAll): o cartão aparece em alerta.
   const breached = kpis.filter({ hasText: "SLA estourado" });

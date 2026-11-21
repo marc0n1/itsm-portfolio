@@ -54,6 +54,8 @@ export function listReportTickets(user: CurrentUser, f: ReportFilters) {
       resolvedAt: true,
       slaPausedAt: true,
       slaPausedSeconds: true,
+      csatScore: true,
+      csatComment: true,
       service: { select: { name: true } },
       requester: { select: { name: true } },
       assignee: { select: { name: true } },

@@ -31,6 +31,9 @@ const T_D = `Aguardando peça ${stamp}`;
 const T_E = `Virada de mês ${stamp}`;
 const T_F = `Primeiro de abril ${stamp}`;
 
+// Comentário do solicitante também é texto livre: precisa ser neutralizado.
+const CSAT_COMMENT = '=SOMA(1;2) péssimo; "ok"';
+
 type Seed = {
   title: string;
   status: string;
@@ -40,6 +43,8 @@ type Seed = {
   resolvedAt?: string;
   paused?: number;
   createdAt: string;
+  csatScore?: number;
+  csatComment?: string;
 };
 
 /**
@@ -53,7 +58,8 @@ const utc = (iso?: string) => (iso ? new Date(iso).toISOString() : null);
 const SEEDS: Seed[] = [
   { title: T_A, status: "RESOLVED", priority: "HIGH", assignee: "agente@demo.com",
     createdAt: "2026-03-10T10:00:00-03:00", firstResponseAt: "2026-03-10T10:30:00-03:00",
-    resolvedAt: "2026-03-10T15:00:00-03:00", paused: 3600 },
+    resolvedAt: "2026-03-10T15:00:00-03:00", paused: 3600,
+    csatScore: 4, csatComment: CSAT_COMMENT },
   { title: T_B, status: "OPEN", priority: "MEDIUM", assignee: null, createdAt: "2026-03-12T09:00:00-03:00" },
   { title: T_C, status: "OPEN", priority: "LOW", assignee: null, createdAt: "2026-03-20T09:00:00-03:00" },
   { title: T_D, status: "WAITING", priority: "MEDIUM", assignee: "admin@demo.com", createdAt: "2026-04-05T09:00:00-03:00" },
@@ -75,12 +81,14 @@ test.beforeAll(async () => {
       const assignee = s.assignee ? (await user(s.assignee)).id : null;
       await c.query(
         `insert into "Ticket" (id, "organizationId", title, description, status, priority,
-           "requesterId", "assigneeId", "firstResponseAt", "resolvedAt", "slaPausedSeconds", "createdAt", "updatedAt")
-         values ($1, $2, $3, $4, $5::"TicketStatus", $6::"Priority", $7, $8, $9, $10, $11, $12, now())`,
+           "requesterId", "assigneeId", "firstResponseAt", "resolvedAt", "slaPausedSeconds", "createdAt", "updatedAt",
+           "csatScore", "csatComment")
+         values ($1, $2, $3, $4, $5::"TicketStatus", $6::"Priority", $7, $8, $9, $10, $11, $12, now(), $13, $14)`,
         [
           `e2ecsv${Math.random().toString(36).slice(2, 12)}`, requester.organizationId, s.title,
           MARK, s.status, s.priority, requester.id, assignee,
           utc(s.firstResponseAt), utc(s.resolvedAt), s.paused ?? 0, utc(s.createdAt),
+          s.csatScore ?? null, s.csatComment ?? null,
         ],
       );
     }
@@ -152,10 +160,10 @@ test("o CSV tem BOM, cabeçalho em português, ';' e o nome do arquivo", async (
   expect(res.headers()["content-disposition"]).toMatch(/^attachment; filename="chamados_\d{4}-\d{2}-\d{2}\.csv"$/);
   expect(text.startsWith(BOM)).toBe(true);
   expect(rows[0].slice(0, 3)).toEqual(["Nº", "Título", "Status"]);
-  expect(rows[0]).toHaveLength(14);
-  // Todos os 6 chamados, em ordem cronológica, cada linha com as 14 colunas.
+  expect(rows[0]).toHaveLength(16);
+  // Todos os 6 chamados, em ordem cronológica, cada linha com as 16 colunas.
   expect(titles(rows)).toEqual([T_A, B_CELL, T_C, T_E, T_F, T_D]);
-  for (const r of body(rows)) expect(r).toHaveLength(14);
+  for (const r of body(rows)) expect(r).toHaveLength(16);
 });
 
 test("as colunas trazem rótulos, datas de Brasília, tempos líquidos e SLA", async ({ page }) => {
@@ -172,7 +180,10 @@ test("as colunas trazem rótulos, datas de Brasília, tempos líquidos e SLA", a
   expect(a[9]).toBe("10/03/2026 15:00");
   expect(a[10]).toBe("30"); // minutos até a 1ª resposta
   expect(a[11]).toBe("240"); // 300 min corridos - 60 min pausado
-  expect(a.slice(12)).toEqual(["Cumprido", "Cumprido"]);
+  expect(a.slice(12, 14)).toEqual(["Cumprido", "Cumprido"]);
+  expect(a[14]).toBe("4"); // nota do solicitante
+  // O comentário começa com "=": sai neutralizado e o ';' e as aspas fazem ida e volta.
+  expect(a[15]).toBe(`'${CSAT_COMMENT}`);
 });
 
 test("texto hostil: fórmula é neutralizada; ';', aspas e quebra de linha fazem ida e volta", async ({

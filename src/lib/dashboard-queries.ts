@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { CurrentUser } from "@/lib/dal";
 import { getSlaPolicies } from "@/lib/sla-queries";
 import { summarizeSla } from "@/lib/sla";
+import { summarizeCsat } from "@/lib/csat";
 import { ticketScope } from "@/lib/ticket-queries";
 
 const TZ = "America/Sao_Paulo";
@@ -52,6 +53,7 @@ export async function getStaffMetrics(user: CurrentUser) {
         firstResponseAt: true,
         slaPausedAt: true,
         slaPausedSeconds: true,
+        csatScore: true,
       },
     }),
   ]);
@@ -60,6 +62,7 @@ export async function getStaffMetrics(user: CurrentUser) {
   const now = new Date();
   return {
     summary: summarizeSla(tickets, policies, now),
+    csat: summarizeCsat(tickets, now),
     daily: bucketByDay(
       tickets.map((t) => t.createdAt),
       now,

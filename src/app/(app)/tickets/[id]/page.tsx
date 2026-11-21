@@ -21,6 +21,8 @@ import { PriorityBadge, StatusBadge } from "../../badges";
 import { updateTicket } from "../actions";
 import { CommentForm } from "./comment-form";
 import { ImageThumb, RemoveAttachmentButton } from "./attachment-item";
+import { RatingForm } from "./rating-form";
+import { SCORE_LABEL, canRate, stars } from "@/lib/csat";
 import { PREVIEWABLE, formatBytes } from "@/lib/attachments";
 
 type Params = Promise<{ id: string }>;
@@ -104,6 +106,58 @@ async function TicketContent({ params }: { params: Params }) {
                   </div>
                 ))}
               </dl>
+            </section>
+          )}
+
+          {canRate(ticket, user.id) && (
+            <section
+              data-testid="rating"
+              className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-4"
+            >
+              <div>
+                <h2 className="font-medium">Como foi o atendimento?</h2>
+                <p className="text-sm text-zinc-500">
+                  {ticket.csatScore !== null
+                    ? "Você já avaliou este chamado. Pode alterar a nota quando quiser."
+                    : "Sua avaliação ajuda a equipe a melhorar."}
+                </p>
+              </div>
+              <RatingForm
+                ticketId={ticket.id}
+                current={
+                  ticket.csatScore !== null
+                    ? { score: ticket.csatScore, comment: ticket.csatComment }
+                    : null
+                }
+              />
+            </section>
+          )}
+
+          {staff && ticket.csatScore !== null && (
+            <section
+              data-testid="rating-summary"
+              className="space-y-1 rounded-lg border border-zinc-200 bg-white p-4"
+            >
+              <h2 className="text-sm font-medium">Avaliação do solicitante</h2>
+              <p>
+                <span aria-hidden className="text-lg text-amber-500">
+                  {stars(ticket.csatScore)}
+                </span>{" "}
+                <span className="text-sm font-medium">
+                  {ticket.csatScore} de 5 ·{" "}
+                  {SCORE_LABEL[ticket.csatScore as keyof typeof SCORE_LABEL]}
+                </span>
+              </p>
+              {ticket.csatComment && (
+                <p className="whitespace-pre-wrap text-sm text-zinc-700">
+                  “{ticket.csatComment}”
+                </p>
+              )}
+              {ticket.csatAt && (
+                <p className="text-xs text-zinc-500">
+                  Avaliado em {formatDate(ticket.csatAt)}
+                </p>
+              )}
             </section>
           )}
 

@@ -3,7 +3,7 @@
  * devolvem as notificações a criar. Quem age NUNCA é notificado.
  */
 
-export type NotificationKind = "ASSIGNED" | "COMMENT" | "STATUS";
+export type NotificationKind = "ASSIGNED" | "COMMENT" | "STATUS" | "RATING";
 
 export type PlannedNotification = {
   userId: string;
@@ -83,5 +83,26 @@ export function planComment(input: {
   return dedupe(input.actorId, [
     input.internal ? null : note(input.requesterId),
     input.assigneeId ? note(input.assigneeId) : null,
+  ]);
+}
+
+/** Avaliação (CSAT): quem atende o chamado fica sabendo do que o cliente achou. */
+export function planRating(input: {
+  actorId: string;
+  authorName: string;
+  assigneeId: string | null;
+  number: number;
+  score: number;
+  /** Já havia avaliação antes (o solicitante mudou de ideia). */
+  isUpdate: boolean;
+}): PlannedNotification[] {
+  if (!input.assigneeId) return [];
+  const verb = input.isUpdate ? "alterou a avaliação do" : "avaliou o";
+  return dedupe(input.actorId, [
+    {
+      userId: input.assigneeId,
+      type: "RATING",
+      message: `${input.authorName} ${verb} chamado #${input.number}: ${input.score} de 5`,
+    },
   ]);
 }

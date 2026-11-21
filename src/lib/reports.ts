@@ -162,9 +162,13 @@ export const CSV_HEADERS = [
   "Minutos para resolver (sem pausas)",
   "SLA 1ª resposta",
   "SLA resolução",
+  "Nota do solicitante (CSAT)",
+  "Comentário do solicitante",
 ];
 
 export type ReportTicket = SlaTicket & {
+  csatScore: number | null;
+  csatComment: string | null;
   number: number;
   title: string;
   service: { name: string } | null;
@@ -199,5 +203,8 @@ export function ticketCsvRow(
       : null,
     CLOCK_LABEL[sla.response.state],
     CLOCK_LABEL[sla.resolution.state],
+    t.csatScore,
+    // Texto livre do solicitante: o toCsv neutraliza fórmulas ("=...", "@...").
+    t.csatComment,
   ];
 }

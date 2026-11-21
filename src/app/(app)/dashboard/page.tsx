@@ -6,6 +6,7 @@ import { countByStatus } from "@/lib/ticket-queries";
 import { getStaffMetrics } from "@/lib/dashboard-queries";
 import { formatDuration } from "@/lib/sla";
 import { STATUSES, STATUS_LABEL, STATUS_STYLE } from "@/lib/tickets";
+import { SCORES, SCORE_LABEL, stars } from "@/lib/csat";
 import { DailyChart } from "./daily-chart";
 
 export default function DashboardPage() {
@@ -88,6 +89,73 @@ async function DashboardContent() {
               hint="sem o tempo em Aguardando"
             />
           </div>
+        </section>
+      )}
+
+      {metrics && (
+        <section aria-label="Satisfação do solicitante" className="space-y-3">
+          <h2 className="text-sm font-medium text-zinc-600">
+            Satisfação do solicitante (30 dias)
+          </h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <Tile
+              label="CSAT"
+              value={
+                metrics.csat.satisfiedPct === null ? "—" : `${metrics.csat.satisfiedPct}%`
+              }
+              hint="avaliações 4 e 5 (satisfeito)"
+            />
+            <Tile
+              label="Nota média"
+              value={
+                metrics.csat.average === null
+                  ? "—"
+                  : `${metrics.csat.average.toLocaleString("pt-BR")} de 5`
+              }
+              hint={`${metrics.csat.rated} avaliação${metrics.csat.rated === 1 ? "" : "ões"}`}
+            />
+            <Tile
+              label="Taxa de resposta"
+              value={
+                metrics.csat.responseRatePct === null
+                  ? "—"
+                  : `${metrics.csat.responseRatePct}%`
+              }
+              hint={`${metrics.csat.rated} de ${metrics.csat.concluded} concluídos`}
+            />
+          </div>
+
+          {metrics.csat.rated > 0 && (
+            <ul
+              data-testid="csat-distribution"
+              aria-label="Avaliações por nota"
+              className="space-y-1.5 rounded-lg border border-zinc-200 bg-white p-4"
+            >
+              {[...SCORES].reverse().map((n) => {
+                const count = metrics.csat.distribution[n - 1];
+                const pct = Math.round((count / metrics.csat.rated) * 100);
+                return (
+                  <li key={n} className="flex items-center gap-3 text-sm">
+                    <span className="w-44 shrink-0 text-zinc-600">
+                      <span aria-hidden className="text-amber-500">
+                        {stars(n)}
+                      </span>{" "}
+                      {n} · {SCORE_LABEL[n]}
+                    </span>
+                    <span className="h-2 flex-1 overflow-hidden rounded bg-zinc-100">
+                      <span
+                        className="block h-full rounded bg-indigo-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </span>
+                    <span className="w-14 text-right tabular-nums text-zinc-700">
+                      {count} ({pct}%)
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 

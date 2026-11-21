@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { planAssignment, planComment, planStatusChange } from "./notifications";
+import { planAssignment, planComment, planRating, planStatusChange } from "./notifications";
 
 const REQ = "req";
 const AGENT = "agent";
@@ -78,5 +78,30 @@ describe("planComment", () => {
       planComment({ ...base, actorId: AGENT, assigneeId: AGENT, internal: true }),
       [],
     );
+  });
+});
+
+describe("planRating", () => {
+  const base = { actorId: REQ, authorName: "Sara", number: 12, score: 2 };
+
+  it("avisa o responsável com a nota", () => {
+    const out = planRating({ ...base, assigneeId: AGENT, isUpdate: false });
+    assert.equal(out.length, 1);
+    assert.equal(out[0].userId, AGENT);
+    assert.equal(out[0].type, "RATING");
+    assert.match(out[0].message, /Sara avaliou o chamado #12: 2 de 5/);
+  });
+
+  it("muda o texto quando é uma alteração da avaliação", () => {
+    const out = planRating({ ...base, assigneeId: AGENT, isUpdate: true });
+    assert.match(out[0].message, /alterou a avaliação do chamado #12/);
+  });
+
+  it("sem responsável, ninguém é avisado", () => {
+    assert.deepEqual(planRating({ ...base, assigneeId: null, isUpdate: false }), []);
+  });
+
+  it("não avisa quem se avaliou a si mesmo", () => {
+    assert.deepEqual(planRating({ ...base, assigneeId: REQ, isUpdate: false }), []);
   });
 });

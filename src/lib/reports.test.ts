@@ -126,6 +126,8 @@ describe("ticketCsvRow", () => {
     resolvedAt: new Date("2026-03-10T18:00:00Z"),
     slaPausedAt: null,
     slaPausedSeconds: 3600,
+    csatScore: 5,
+    csatComment: "Atendimento rápido",
   };
   const now = new Date("2026-04-01T00:00:00Z");
 
@@ -141,6 +143,7 @@ describe("ticketCsvRow", () => {
       // 5h corridas (300 min) - 1h pausado = 240
       240,
       "Cumprido", "Cumprido",
+      5, "Atendimento rápido",
     ]);
   });
 
@@ -153,6 +156,8 @@ describe("ticketCsvRow", () => {
       firstResponseAt: null,
       resolvedAt: null,
       slaPausedSeconds: 0,
+      csatScore: null,
+      csatComment: null,
     };
     const row = ticketCsvRow(open, policy, now);
     assert.equal(row[4], ""); // serviço
@@ -164,6 +169,8 @@ describe("ticketCsvRow", () => {
     // 'now' muito depois dos prazos: ambos estourados.
     assert.equal(row[12], "Estourado");
     assert.equal(row[13], "Estourado");
+    assert.equal(row[14], null); // sem avaliação
+    assert.equal(row[15], null);
   });
 
   it("SLA não cumprido quando concluiu depois do prazo", () => {
