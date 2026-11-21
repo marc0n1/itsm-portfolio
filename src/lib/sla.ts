@@ -24,6 +24,23 @@ export const DEFAULT_SLA: SlaPolicies = {
   LOW: { responseMinutes: 8 * 60, resolutionMinutes: 72 * 60 },
 };
 
+/**
+ * Metas da organização a partir das linhas gravadas; prioridade sem registro
+ * usa o padrão. Pura, para servir ao app e ao job agendado.
+ */
+export function policiesFromRows(
+  rows: { priority: Priority; responseMinutes: number; resolutionMinutes: number }[],
+): SlaPolicies {
+  const policies = { ...DEFAULT_SLA } as SlaPolicies;
+  for (const row of rows) {
+    policies[row.priority] = {
+      responseMinutes: row.responseMinutes,
+      resolutionMinutes: row.resolutionMinutes,
+    };
+  }
+  return policies;
+}
+
 export type SlaTicket = {
   createdAt: Date;
   priority: Priority;

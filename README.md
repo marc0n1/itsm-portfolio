@@ -18,6 +18,7 @@ Sistema de service desk (ITSM) com abertura e atendimento de chamados, catálogo
 - **Respostas prontas:** a equipe (agente e admin) cadastra modelos de comentário; no chamado, um seletor insere o texto no campo, com `{{solicitante}}`, `{{numero}}` e `{{agente}}` já preenchidos, e dá para editar antes de enviar. Variáveis desconhecidas são recusadas ao salvar. O solicitante nunca recebe esses modelos.
 - **Relatórios em CSV (equipe):** exporta chamados filtrando por período (data de abertura, inclusivo, horário de Brasília), status, prioridade, responsável (ou "sem responsável") e busca. O arquivo abre direto no Excel em português (separador `;`, acentos preservados) e traz datas, tempos líquidos (descontando pausas) e a situação do SLA. Células que começam com `=`, `+`, `-` ou `@` são neutralizadas contra injeção de fórmula, e há um teto de 10.000 linhas por exportação.
 - **Satisfação (CSAT):** o solicitante avalia o chamado concluído com nota de 1 a 5 e comentário opcional (e pode alterá-la depois). Só ele avalia, e o servidor confere isso; o banco também recusa notas fora do intervalo. Reabrir o chamado não apaga a avaliação. O dashboard da equipe mostra o CSAT (% de notas 4 e 5), a nota média, a taxa de resposta e a distribuição por nota; o responsável é avisado de cada avaliação, e a nota e o comentário saem no relatório CSV.
+- **Alertas de SLA:** a equipe é avisada quando um prazo (primeira resposta ou resolução) entra em risco (restam 20% ou menos da meta) e quando estoura. Em risco avisa o responsável (ou toda a equipe, se não houver); estourado avisa também os administradores. Cada prazo é avisado uma vez só. Precisa de um agendador (veja abaixo).
 - **Notificações:** sino no cabeçalho com contador de não lidas, atualizado a cada 30 s. Avisa atribuição (novo responsável), mudança de status (solicitante) e comentários (o outro lado da conversa e o responsável). Nota interna só avisa a equipe, e quem faz a ação nunca é notificado. Cada pessoa só vê as próprias.
 - **Histórico de auditoria:** linha do tempo interna em cada chamado (abertura e mudanças de status, prioridade e responsável, com autor e data). Só a equipe vê.
 - **Quadro Kanban:** arrastar e soltar entre colunas de status (com seletor "Mover para" como alternativa), ordenado por urgência, com filtro "Atribuídos a mim". Visível só para a equipe.
@@ -68,6 +69,23 @@ npm run storage:cleanup -- --apply # apaga de verdade
 ```
 
 Por segurança, arquivos com menos de 1 hora são ignorados (podem ser um upload em andamento; ajuste com `--grace-minutes=N`).
+
+### Alertas de SLA (agendador)
+
+Os alertas não disparam sozinhos: algo precisa chamar a verificação de tempos em tempos (ex.: a cada 5 minutos). É seguro repetir ou rodar de dois lugares ao mesmo tempo, porque cada prazo só é avisado uma vez.
+
+```bash
+# 1. Defina um segredo (sem ele a rota fica desligada e responde 503)
+CRON_SECRET="..."          # node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+
+# 2a. Por HTTP, de qualquer agendador (cron do sistema, Vercel Cron, GitHub Actions...)
+curl -H "Authorization: Bearer $CRON_SECRET" https://seu-app/api/cron/sla
+
+# 2b. Ou direto no banco, sem o servidor web (cron do sistema)
+npm run sla:check          # ex.: */5 * * * *  cd /caminho/do/app && npm run sla:check
+```
+
+A resposta traz quantos chamados foram examinados, quantos alertas novos e quantas notificações foram criadas. No Vercel Cron o cabeçalho `Authorization: Bearer $CRON_SECRET` já é enviado automaticamente.
 
 ### Atrás de um proxy
 

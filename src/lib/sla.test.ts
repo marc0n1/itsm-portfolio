@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_SLA,
+  policiesFromRows,
   clockLabel,
   computeSla,
   formatDuration,
@@ -223,5 +224,26 @@ describe("summarizeSla", () => {
       slaPausedSeconds: 200 * 60,
     });
     assert.equal(summarizeSla([t], policies, now).avgResolutionMs, 300 * MIN);
+  });
+});
+
+describe("policiesFromRows", () => {
+  it("sem registros, devolve o padrão", () => {
+    assert.deepEqual(policiesFromRows([]), DEFAULT_SLA);
+  });
+
+  it("registros sobrescrevem só a prioridade informada; as outras seguem no padrão", () => {
+    const p = policiesFromRows([
+      { priority: "HIGH", responseMinutes: 5, resolutionMinutes: 30 },
+    ]);
+    assert.deepEqual(p.HIGH, { responseMinutes: 5, resolutionMinutes: 30 });
+    assert.deepEqual(p.LOW, DEFAULT_SLA.LOW);
+    assert.deepEqual(p.CRITICAL, DEFAULT_SLA.CRITICAL);
+  });
+
+  it("não altera o objeto padrão compartilhado", () => {
+    const before = JSON.stringify(DEFAULT_SLA);
+    policiesFromRows([{ priority: "LOW", responseMinutes: 1, resolutionMinutes: 2 }]);
+    assert.equal(JSON.stringify(DEFAULT_SLA), before);
   });
 });

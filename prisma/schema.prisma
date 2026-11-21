@@ -36,6 +36,17 @@ enum NotificationType {
   COMMENT
   STATUS
   RATING
+  SLA
+}
+
+enum SlaClock {
+  RESPONSE
+  RESOLUTION
+}
+
+enum SlaAlertState {
+  AT_RISK
+  BREACHED
 }
 
 enum TicketEventType {
@@ -156,6 +167,7 @@ model Ticket {
   comments      Comment[]
   events        TicketEvent[]
   notifications Notification[]
+  slaAlerts     SlaAlert[]
   attachments   Attachment[]
 
   @@index([organizationId, status])
@@ -261,4 +273,21 @@ model CannedResponse {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, title])
+}
+
+/// Alertas de SLA JÁ enviados: é o que torna o job idempotente (rodar de novo,
+/// ou de dois lugares ao mesmo tempo, não avisa duas vezes). A chave inclui o
+/// prazo (`dueAt`): se ele muda (pausa, outra prioridade, nova meta), um novo
+/// alerta pode ser enviado.
+model SlaAlert {
+  id        String        @id @default(cuid())
+  ticketId  String
+  clock     SlaClock
+  state     SlaAlertState
+  dueAt     DateTime
+  createdAt DateTime      @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, clock, state, dueAt])
 }
